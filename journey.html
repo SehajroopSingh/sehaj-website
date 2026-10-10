@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Journey | Alessia Canuto</title>
+  <meta name="description" content="The geography of Alessia Canuto's education and professional experience — Rome, Brussels, Berlin, Nice, Edinburgh, Prague, Astana, Toronto and Los Angeles.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Dancing+Script:wght@400..700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#FFF8F3">
+  <link rel="canonical" href="https://sehajroopsingh.github.io/sehaj-website/journey.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sehajroopsingh.github.io/sehaj-website/journey.html">
+  <meta property="og:image" content="https://sehajroopsingh.github.io/sehaj-website/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:site_name" content="Alessia Canuto">
+  <meta property="og:title" content="Journey | Alessia Canuto">
+  <meta property="og:description" content="The geography of Alessia Canuto's education and professional experience — Rome, Brussels, Berlin, Nice, Edinburgh, Prague, Astana, Toronto and Los Angeles.">
+
+  <link rel="stylesheet" href="css/style.css?v=39">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
+  <style>
+    #journey-map { height: 500px; width: 100%; border-radius: 4px; }
+    .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 24px rgba(26,22,18,0.15); }
+    .leaflet-popup-content { margin: 0.5rem 1rem; font-family: var(--sans); font-size: 0.9rem; line-height: 1.5; }
+    .leaflet-popup-content h4 { margin: 0 0 0.25rem; font-family: var(--serif); font-size: 1.1rem; color: var(--ink); }
+    .leaflet-popup-content .pop-role { color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; font-weight: 500; font-size: 0.85rem; margin-bottom: 0.25rem; display: block; }
+    .leaflet-popup-content .pop-year { color: var(--ink-soft); font-size: 0.8rem; }
+    .journey-marker { background: transparent; border: none; }
+    .journey-marker-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 3px solid var(--paper); box-shadow: 0 2px 8px rgba(26,22,18,0.2); display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
+    .journey-marker-icon::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--paper); }
+    .journey-marker:hover .journey-marker-icon { transform: scale(1.3); box-shadow: 0 4px 16px rgba(102,51,198,0.35); z-index: 1000; }
+    .journey-marker.active .journey-marker-icon { transform: scale(1.4); box-shadow: 0 0 0 4px var(--accent-soft), 0 4px 16px rgba(102,51,198,0.35); }
+    .pop-entry { margin: 0.35rem 0 0; }
+    .pop-entry .pop-cat { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em; color: var(--ink-faint); text-transform: uppercase; margin-right: 0.4em; }
+    .leaflet-control-attribution { font-size: 0.7rem; }
+    .route-line { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 8, 6; fill: none; opacity: 0.6; transition: opacity 0.3s, stroke-width 0.3s; }
+    .route-line.active { opacity: 1; stroke-width: 3; }
+    .map-wrap { position: relative; }
+    .map-year-indicator { position: absolute; bottom: 1rem; left: 1rem; background: var(--paper); padding: 0.5rem 1rem; border-radius: 100px; box-shadow: 0 2px 12px rgba(26,22,18,0.1); font-size: 0.85rem; font-weight: 500; color: var(--ink); z-index: 500; }
+  </style>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container nav-bar">
+    <a class="brand" href="index.html">Alessia <span>Canuto</span></a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">Menu</button>
+    <nav aria-label="Main navigation">
+      <ul class="nav-links" id="nav-menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="work.html">Work</a></li>
+        <li><a href="thinking.html">Thinking</a></li>
+        <li><a href="journey.html" aria-current="page">Journey</a></li>
+        <li><a href="cv.html">CV</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ═══════════════════ PAGE INTRO ═══════════════════ -->
+  <section class="hero" aria-labelledby="journey-heading">
+    <div class="container">
+      <span class="label label--ink reveal">Journey</span>
+      <h1 id="journey-heading" class="display-l" data-split style="max-width: 18em;">
+        Nine cities. <em class="u-draw">One way of thinking.</em>
+      </h1>
+      <p class="lede reveal" style="margin-top: 1.5rem; max-width: 56ch;">
+        International experience is not simply a line on my CV. It has shaped how I think.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ THE MAP ═══════════════════
+       Cities are plotted by their real coordinates on an editorial route map.
+       The year buttons below highlight where each chapter happened. -->
+  <section class="section--tight" aria-label="Map of places studied and worked" style="padding-top: 0;">
+    <div class="container">
+
+      <!-- Year filters -->
+      <div class="filter-bar reveal" data-year-bar role="group" aria-label="Filter the map by year">
+        <button class="filter-btn" data-year="all" aria-pressed="true">All years</button>
+        <button class="filter-btn" data-year="2022" aria-pressed="false">2022</button>
+        <button class="filter-btn" data-year="2023" aria-pressed="false">2023</button>
+        <button class="filter-btn" data-year="2024" aria-pressed="false">2024</button>
+        <button class="filter-btn" data-year="2025" aria-pressed="false">2025</button>
+        <button class="filter-btn" data-year="2026" aria-pressed="false">2026</button>
+      </div>
+
+      <!-- Category filters: STUDY / WORK / VOLUNTEERING (BRIEF.md §22) -->
+      <div class="filter-bar reveal" data-cat-bar role="group" aria-label="Filter the map by category" style="margin-top: 0.75rem;">
+        <button class="filter-btn" data-cat="all" aria-pressed="true">All categories</button>
+        <button class="filter-btn" data-cat="study" aria-pressed="false">Study</button>
+        <button class="filter-btn" data-cat="work" aria-pressed="false">Work</button>
+        <button class="filter-btn" data-cat="volunteering" aria-pressed="false">Volunteering</button>
+      </div>
+
+      <div class="map-wrap">
+        <div id="journey-map" class="reveal-stage" data-cascade aria-label="Interactive map of Alessia's journey across eight cities"></div>
+        <div class="map-year-indicator" id="map-year-indicator" aria-live="polite">All years</div>
+      </div>
+
+      <div class="map-legend reveal-stage" data-cascade>
+        <span><b>Study</b> — degrees, exchanges &amp; student leadership</span>
+        <span><b>Work</b> — consulting, research, writing &amp; MemSurf</span>
+        <span><b>Volunteering</b> — Save the Children &amp; Amnesty</span>
+      </div>
+
+      <!-- ═══════════ YEAR PANELS ═══════════
+           Each panel lists what happened that year. data-cities controls
+           which dots light up on the map when the year is selected. -->
+      <div style="margin-top: 3.5rem;">
+
+        <div class="year-panel is-active" data-year-panel="all" data-cities="">
+          <p class="body-copy">
+            Select a year to see where that chapter happened. The through-line: a base in
+            Rome, graduate study and policy research across Europe, and work that has
+            steadily widened — from Edinburgh to Astana to Los Angeles.
+          </p>
+        </div>
+
+        <div class="year-panel" data-year-panel="2022" data-cities="edinburgh toronto rome">
+          <div class="year-entries">
+            <div class="year-entry">
+              <span class="tag">Study</span>
+              <h4>Edinburgh / Rome</h4>
+              <p>Erasmus+ exchange at the University of Edinburgh, during the Luiss BA.</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Volunteering</span>
+              <h4>Edinburgh</h4>
+              <p>Amnesty International — campaigns on intimate partner violence.</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Toronto (remote)</h4>
+              <p>Correspondent writing begins for the Organization for World Peace.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="year-panel" data-year-panel="2023" data-cities="rome astana toronto">
+          <div class="year-entries">
+            <div class="year-entry">
+              <span class="tag">Study</span>
+              <h4>Rome / Edinburgh</h4>
+              <p>Completing the BA in Philosophy, Politics and Economics at Luiss.</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Astana / Toronto (remote)</h4>
+              <p>EU columns for The Astana Times; correspondent writing for the Organization for World Peace.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="year-panel" data-year-panel="2024" data-cities="rome brussels berlin nice prague astana">
+          <div class="year-entries">
+            <div class="year-entry">
+              <span class="tag">Study</span>
+              <h4>Rome / Brussels / Berlin / Nice</h4>
+              <p>Joint MA in Global Economic Governance and Public Affairs (Luiss + CIFE), across four cities.</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Brussels</h4>
+              <p>Policy research and analysis with Dreamocracy; contributing author at the Center for Behavioral Decisions (Prague, remote).</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Study</span>
+              <h4>Rome</h4>
+              <p>Director of Madama Louise, the Luiss university newspaper.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="year-panel" data-year-panel="2025" data-cities="rome brussels prague">
+          <div class="year-entries">
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Rome</h4>
+              <p>ESG, CSRD/ESRS and behavioural communication consulting with Disal Consulting.</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Brussels / Nice</h4>
+              <p>Public-interest policy research with Dreamocracy, including the 70-attendee emotions-in-policymaking workshop; AI governance research for the World AI Film Festival.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="year-panel" data-year-panel="2026" data-cities="rome losangeles prague">
+          <div class="year-entries">
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Rome</h4>
+              <p>Consulting across policy, ESG and communication.</p>
+            </div>
+            <div class="year-entry">
+              <span class="tag">Work</span>
+              <h4>Los Angeles</h4>
+              <p>Co-founding and operating MemSurf, an AI-native learning app.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ WHAT THE GEOGRAPHY MEANS ═══════════════════ -->
+  <section class="section--soft" aria-labelledby="geo-heading">
+    <div class="container container--narrow prose">
+      <span class="label reveal">Why it matters</span>
+      <h2 id="geo-heading" class="display-m reveal">The same questions, seen from different places</h2>
+      <p class="body-copy reveal">
+        Studying and working across these cities means having seen the same questions from
+        different institutional vantage points: the EU from inside Brussels and from a
+        Central Asian newsroom's perspective; sustainability from a regulator's frame and
+        from the data architecture of a multinational; technology from European policy
+        debates and from a startup in California.
+      </p>
+      <p class="body-copy reveal">
+        That habit — deliberately switching vantage points — is probably the most useful
+        thing the geography has taught me.
+      </p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ PHOTO PLACEHOLDERS ═══════════════════
+       Swap any tile for a real photo:
+       <img class="ph--square" src="images/rome.jpg" alt="Rome"> -->
+  <section aria-labelledby="photos-heading">
+    <div class="container">
+      <span class="label reveal">In pictures</span>
+      <h2 id="photos-heading" class="display-m reveal">Places, eventually in photographs</h2>
+      <div class="tilt-grid reveal" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.25rem; margin-top: 2.5rem;">
+        <img class="ph--square" style="aspect-ratio: 1; object-fit: cover; width: 100%;" src="images/journey-rome.jpg" alt="Rome, at the start of the Master's">
+        <img class="ph--square" style="aspect-ratio: 1; object-fit: cover; width: 100%;" src="images/journey-brussels.jpg" alt="Co-moderating the Dreamocracy workshop in Brussels">
+        <img class="ph--square" style="aspect-ratio: 1; object-fit: cover; width: 100%;" src="images/journey-berlin.jpg" alt="Berlin, during the joint Master's">
+        <img class="ph--square" style="aspect-ratio: 1; object-fit: cover; width: 100%;" src="images/journey-nice.jpg" alt="Nice — closing discussion on ethics and justice in the digital world">
+        <img class="ph--square" style="aspect-ratio: 1; object-fit: cover; width: 100%;" src="images/journey-edinburgh.jpg" alt="Edinburgh Castle">
+        <div class="ph ph--square"><span class="ph-note">Prague</span></div>
+        <div class="ph ph--square"><span class="ph-note">Astana</span></div>
+        <div class="ph ph--square"><span class="ph-note">Toronto</span></div>
+        <div class="ph ph--square"><span class="ph-note">Los Angeles</span></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-name">Alessia Canuto</div>
+        <div class="footer-role">Policy, Technology & Sustainability</div>
+      </div>
+      <ul class="footer-links">
+        <li><a href="about.html">About</a></li>
+        <li><a href="work.html">Work</a></li>
+        <li><a href="thinking.html">Thinking</a></li>
+        <li><a href="journey.html">Journey</a></li>
+        <li><a href="cv.html">CV</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="https://www.linkedin.com/in/alessia-canuto-451a84226" target="_blank" rel="noopener">LinkedIn</a></li>
+      </ul>
+    </div>
+    <p class="footer-copy">&copy; 2026 Alessia Canuto · Set in Playfair Display & DM Sans · Made between Rome and Los Angeles</p>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script src="js/main.js?v=39"></script>
+<script>
+(function() {
+  // City data with real coordinates
+  const cities = {
+    rome: { lat: 41.9028, lng: 12.4964, name: 'Rome', years: [2020, 2021, 2022, 2023, 2024, 2025, 2026], entries: [
+      { cat: 'study', text: 'BA (PPE) + joint MA at Luiss · Madama Louise, Director · Luiss Women in Business' },
+      { cat: 'work', text: 'Disal Consulting — ESG, CSRD and stakeholder communication' },
+      { cat: 'volunteering', text: 'Save the Children — Volunteer for Education' }
+    ]},
+    edinburgh: { lat: 55.9533, lng: -3.1883, name: 'Edinburgh', years: [2022], entries: [
+      { cat: 'study', text: 'Erasmus+ exchange, University of Edinburgh' },
+      { cat: 'volunteering', text: 'Amnesty International — student volunteer' }
+    ]},
+    brussels: { lat: 50.8503, lng: 4.3517, name: 'Brussels', years: [2024, 2025], entries: [
+      { cat: 'work', text: 'Dreamocracy — policy research and the emotions-in-policymaking workshop' }
+    ]},
+    berlin: { lat: 52.5200, lng: 13.4050, name: 'Berlin', years: [2024], entries: [
+      { cat: 'study', text: 'Joint MA term (CIFE)' }
+    ]},
+    nice: { lat: 43.7102, lng: 7.2620, name: 'Nice', years: [2024], entries: [
+      { cat: 'study', text: 'Joint MA term (CIFE)' },
+      { cat: 'work', text: 'World AI Film Festival — AI governance research' }
+    ]},
+    prague: { lat: 50.0755, lng: 14.4378, name: 'Prague', years: [2024, 2025, 2026], entries: [
+      { cat: 'work', text: 'Center for Behavioral Decisions — contributing author (remote)' }
+    ]},
+    astana: { lat: 51.1605, lng: 71.4704, name: 'Astana', years: [2023, 2024], entries: [
+      { cat: 'work', text: 'The Astana Times — EU columnist (remote)' }
+    ]},
+    toronto: { lat: 43.6532, lng: -79.3832, name: 'Toronto', years: [2022, 2023], entries: [
+      { cat: 'work', text: 'The Organization for World Peace — correspondent (remote)' }
+    ]},
+    losangeles: { lat: 34.0522, lng: -118.2437, name: 'Los Angeles', years: [2026], entries: [
+      { cat: 'work', text: 'MemSurf — Co-Founder & COO' }
+    ]}
+  };
+
+  // Routes from Rome to each city (for the animated lines)
+  const routes = [
+    { from: 'rome', to: 'edinburgh' },
+    { from: 'rome', to: 'brussels' },
+    { from: 'rome', to: 'berlin' },
+    { from: 'rome', to: 'nice' },
+    { from: 'rome', to: 'prague' },
+    { from: 'rome', to: 'astana' },
+    { from: 'rome', to: 'toronto' },
+    { from: 'rome', to: 'losangeles' }
+  ];
+
+  // Year to cities mapping
+  const yearCities = {
+    2022: ['rome', 'edinburgh', 'toronto'],
+    2023: ['rome', 'astana', 'toronto'],
+    2024: ['rome', 'brussels', 'berlin', 'nice', 'prague', 'astana'],
+    2025: ['rome', 'brussels', 'prague'],
+    2026: ['rome', 'losangeles', 'prague']
+  };
+
+  // Initialize map
+  const map = L.map('journey-map', {
+    zoomControl: false,
+    scrollWheelZoom: false,
+    dragging: true,
+    touchZoom: true,
+    doubleClickZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    tap: false
+  });
+
+  // Add tile layer (OpenStreetMap with custom styling)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Add zoom control in bottom right
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+  // Store markers and polylines
+  const markers = {};
+  const polylines = {};
+
+  // Create custom marker icon
+  const createMarkerIcon = (isActive = false) => {
+    return L.divIcon({
+      className: 'journey-marker' + (isActive ? ' active' : ''),
+      html: '<div class="journey-marker-icon"></div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+  };
+
+  // Add markers for each city
+  Object.entries(cities).forEach(([key, city]) => {
+    const marker = L.marker([city.lat, city.lng], {
+      icon: createMarkerIcon(),
+      riseOnHover: true
+    }).addTo(map);
+
+    const entriesHtml = city.entries.map(e =>
+      `<p class="pop-entry"><span class="pop-cat">${e.cat}</span>${e.text}</p>`).join('');
+    marker.bindPopup(`
+      <h4>${city.name}</h4>
+      ${entriesHtml}
+      <span class="pop-year">${city.years[0]}–${city.years[city.years.length - 1]}</span>
+    `);
+
+    markers[key] = marker;
+  });
+
+  // Add route lines (Rome to each city)
+  routes.forEach(route => {
+    const from = cities[route.from];
+    const to = cities[route.to];
+    const polyline = L.polyline([
+      [from.lat, from.lng],
+      [to.lat, to.lng]
+    ], {
+      className: 'route-line',
+      weight: 2,
+      color: '#6633C6',
+      dashArray: '8, 6',
+      opacity: 0.6
+    }).addTo(map);
+    polylines[route.to] = polyline;
+  });
+
+  // Fit map to show all markers
+  const group = new L.featureGroup(Object.values(markers));
+  map.fitBounds(group.getBounds().pad(0.15));
+
+  // Year filter functionality
+  const filterBtns = document.querySelectorAll('.filter-btn[data-year]');
+  const yearPanels = document.querySelectorAll('.year-panel[data-year-panel]');
+  const yearIndicator = document.getElementById('map-year-indicator');
+
+  function setActiveYear(year) {
+    // Update filter buttons
+    filterBtns.forEach(btn => {
+      const isActive = btn.dataset.year === year;
+      btn.setAttribute('aria-pressed', isActive);
+      btn.classList.toggle('is-active', isActive);
+    });
+
+    // Update year panels
+    yearPanels.forEach(panel => {
+      const isActive = panel.dataset.yearPanel === year;
+      panel.classList.toggle('is-active', isActive);
+      panel.hidden = !isActive;
+    });
+
+    // Update map markers and routes
+    Object.entries(markers).forEach(([key, marker]) => {
+      const cityYears = cities[key].years;
+      const isActive = year === 'all' || cityYears.includes(parseInt(year));
+      marker.setIcon(createMarkerIcon(isActive));
+      if (isActive) {
+        marker.openPopup();
+      }
+    });
+
+    Object.entries(polylines).forEach(([key, line]) => {
+      const cityYears = cities[key].years;
+      const isActive = year === 'all' || cityYears.includes(parseInt(year));
+      line.getElement().classList.toggle('active', isActive);
+    });
+
+    // Update year indicator
+    yearIndicator.textContent = year === 'all' ? 'All years' : year;
+  }
+
+  // Attach click handlers to filter buttons
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setActiveYear(btn.dataset.year);
+    });
+  });
+
+  // Also handle year panel clicks (for keyboard accessibility)
+  yearPanels.forEach(panel => {
+    panel.addEventListener('click', () => {
+      const year = panel.dataset.yearPanel;
+      if (year !== 'all') {
+        setActiveYear(year);
+      }
+    });
+  });
+
+  // Category filter: dim cities that don't include the chosen category
+  const catBtns = document.querySelectorAll('[data-cat-bar] .filter-btn');
+  catBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.cat;
+      catBtns.forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+      Object.entries(markers).forEach(([key, marker]) => {
+        const has = cat === 'all' || cities[key].entries.some(e => e.cat === cat);
+        marker.setOpacity(has ? 1 : 0.25);
+        if (has && cat !== 'all') marker.openPopup();
+      });
+    });
+  });
+
+  // Initialize with 'all'
+  setActiveYear('all');
+
+  // Reveal animation for map
+  const mapEl = document.getElementById('journey-map');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        // Trigger map resize after animation
+        setTimeout(() => map.invalidateSize(), 300);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  observer.observe(mapEl);
+
+})();
+</script>
+</body>
+</html>

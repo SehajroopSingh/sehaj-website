@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Contact | Alessia Canuto</title>
+  <meta name="description" content="Get in touch with Alessia Canuto about policy, ESG and sustainability, AI governance, research, speaking or collaboration.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Dancing+Script:wght@400..700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#FFF8F3">
+  <link rel="canonical" href="https://sehajroopsingh.github.io/sehaj-website/contact.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sehajroopsingh.github.io/sehaj-website/contact.html">
+  <meta property="og:image" content="https://sehajroopsingh.github.io/sehaj-website/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:site_name" content="Alessia Canuto">
+  <meta property="og:title" content="Contact | Alessia Canuto">
+  <meta property="og:description" content="Get in touch with Alessia Canuto about policy, ESG and sustainability, AI governance, research, speaking or collaboration.">
+
+  <link rel="stylesheet" href="css/style.css?v=39">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container nav-bar">
+    <a class="brand" href="index.html">Alessia <span>Canuto</span></a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">Menu</button>
+    <nav aria-label="Main navigation">
+      <ul class="nav-links" id="nav-menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="work.html">Work</a></li>
+        <li><a href="thinking.html">Thinking</a></li>
+        <li><a href="journey.html">Journey</a></li>
+        <li><a href="cv.html">CV</a></li>
+        <li><a href="contact.html" aria-current="page">Contact</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ═══════════════════ CONTACT ═══════════════════ -->
+  <section class="hero" aria-labelledby="contact-heading">
+    <div class="container">
+      <div class="split">
+
+        <div>
+          <span class="label reveal">Contact</span>
+          <h1 id="contact-heading" class="display-xl" data-split>Let's <em class="u-draw">talk.</em></h1>
+          <p class="lede reveal" style="margin-top: 1.5rem; max-width: 44ch;">
+            Working on a policy question, a sustainability challenge, an emerging
+            technology or an interesting idea? I'd like to hear about it.
+          </p>
+
+          <div class="reveal" style="margin-top: 3rem;">
+            <p class="meta" style="margin-bottom: 0.4rem;">Email</p>
+            <p style="font-family: var(--serif); font-size: 1.25rem; margin-bottom: 1.75rem;">
+              <a class="u-draw" href="mailto:alessiacanuto@hotmail.com" style="color: var(--ink); text-decoration: none;">alessiacanuto@hotmail.com</a>
+            </p>
+            <p class="meta" style="margin-bottom: 0.4rem;">LinkedIn</p>
+            <p style="font-family: var(--serif); font-size: 1.1rem;">
+              <a class="u-draw" href="https://www.linkedin.com/in/alessia-canuto-451a84226" target="_blank" rel="noopener" style="color: var(--ink); text-decoration: none;">linkedin.com/in/alessia-canuto-451a84226</a>
+            </p>
+          </div>
+
+          <div class="tilt-grid reveal" style="max-width: 280px; margin-top: 3rem;">
+            <img src="images/portrait-secondary.jpg" alt="Alessia Canuto" loading="lazy" style="width: 100%; display: block;">
+          </div>
+        </div>
+
+        <!-- ═══ CONTACT FORM ═══
+             Choosing a topic pre-fills a suggested opening in the message box
+             (fully editable — see js/main.js, section 6, to change the texts).
+             Submitting opens the visitor's email app with everything filled in. -->
+        <form class="form-grid reveal-stage form-assemble" data-cascade data-contact-form aria-label="Contact form" style="align-self: start;">
+          <div class="form-field">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" autocomplete="name" required>
+          </div>
+          <div class="form-field">
+            <label for="organisation">Organisation</label>
+            <input type="text" id="organisation" name="organisation" autocomplete="organization">
+          </div>
+          <div class="form-field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" autocomplete="email" required>
+          </div>
+          <div class="form-field">
+            <label for="topic">I'm reaching out about…</label>
+            <select id="topic" name="topic">
+              <option value="" selected>Choose a topic</option>
+              <option value="policy">Policy / Public Affairs</option>
+              <option value="esg">ESG / Sustainability</option>
+              <option value="ai">AI Governance</option>
+              <option value="research">Research</option>
+              <option value="speaking">Speaking / Events</option>
+              <option value="collaboration">Collaboration</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-field form-field--full">
+            <label for="message">What would you like to discuss?</label>
+            <textarea id="message" name="message" required></textarea>
+          </div>
+          <div class="form-field--full">
+            <button class="btn btn--solid" type="submit">Start a conversation</button>
+            <p class="form-note" style="margin-top: 1rem;" data-form-status aria-live="polite">
+              Sending opens your email app with the message ready to go — nothing is sent
+              until you press send there.
+            </p>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-name">Alessia Canuto</div>
+        <div class="footer-role">Policy, Technology &amp; Sustainability</div>
+      </div>
+      <ul class="footer-links">
+        <li><a href="about.html">About</a></li>
+        <li><a href="work.html">Work</a></li>
+        <li><a href="thinking.html">Thinking</a></li>
+        <li><a href="journey.html">Journey</a></li>
+        <li><a href="cv.html">CV</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="https://www.linkedin.com/in/alessia-canuto-451a84226" target="_blank" rel="noopener">LinkedIn</a></li>
+      </ul>
+    </div>
+    <p class="footer-copy">&copy; 2026 Alessia Canuto · Set in Playfair Display &amp; DM Sans · Made between Rome and Los Angeles</p>
+  </div>
+</footer>
+
+<script src="js/main.js?v=39"></script>
+</body>
+</html>
