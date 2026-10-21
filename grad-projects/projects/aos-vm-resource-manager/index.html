@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vCPU Scheduler + Memory Coordinator</title>
+  <meta name="description" content="A walkthrough of two programs that keep eight KVM virtual machines balanced across four CPU cores and fed with memory, with real test results.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+</head>
+<body>
+  <!-- shared arrowheads for the diagrams -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path>
+      </marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path>
+      </marker>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a class="active" href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 06 · Systems · Advanced Operating Systems (CS 6210)</div>
+      <h1>Sharing one machine between eight virtual ones</h1>
+      <p class="lede">A cloud server runs many virtual machines on one box. Someone has to decide which VM gets which CPU core, and how much memory each one holds, as their needs change minute to minute. For this project I wrote the two programs that make those decisions, and tested them against real KVM virtual machines.</p>
+      <div class="tags"><span class="tag">C</span><span class="tag">libvirt</span><span class="tag">KVM / QEMU</span><span class="tag">vCPU pinning</span><span class="tag">memory ballooning</span><span class="tag">~10 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <!-- ================= TABLE OF CONTENTS ================= -->
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#setup">The setup</a></li>
+            <li><a href="#cpu">Part 1 · vCPU scheduler</a></li>
+            <li class="sub"><a href="#cpu-problem">The problem</a></li>
+            <li class="sub"><a href="#cpu-steps">The loop, step by step</a></li>
+            <li class="sub"><a href="#cpu-replay">Watch a real run</a></li>
+            <li class="sub"><a href="#cpu-results">Results</a></li>
+            <li><a href="#mem">Part 2 · Memory coordinator</a></li>
+            <li class="sub"><a href="#mem-problem">The problem</a></li>
+            <li class="sub"><a href="#mem-rules">The rules</a></li>
+            <li class="sub"><a href="#mem-results">Results</a></li>
+            <li><a href="#testing">How I tested it</a></li>
+            <li><a href="#lessons">What I'd do differently</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <!-- ================= BODY ================= -->
+      <div class="body">
+
+        <!-- ---------- SUMMARY ---------- -->
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Setup:</strong> one Linux host with 4 physical cores runs 8 virtual machines. Each VM has 1 virtual CPU and starts with a few hundred MB of memory.</li>
+              <li><strong>Program 1, the vCPU scheduler:</strong> every few seconds it measures how busy each VM is and pins VMs to cores so that all four cores carry the same load. Once balanced, it leaves things alone.</li>
+              <li><strong>Program 2, the memory coordinator:</strong> every few seconds it checks how much free memory each VM has. VMs that are running out get more; VMs that are hoarding give some back. The host is never drained.</li>
+              <li><strong>Result:</strong> in the recorded tests, the scheduler balanced 8 VMs onto 4 cores with a single re-pin and held every core within a few percent of the others. The coordinator grew a hungry VM from 256 MB to 1.2 GB in 100 MB steps and shrank it back when the load went away.</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ---------- SETUP ---------- -->
+        <section id="setup">
+          <div class="part-label">Background</div>
+          <h2>The setup: one host, eight guests</h2>
+          <p>A <strong>virtual machine</strong> (VM) is a computer running inside another computer. The real machine is called the <strong>host</strong>; the VMs are <strong>guests</strong>. The piece of software that creates the illusion is the <strong>hypervisor</strong>. On Linux that's KVM, and the guests here are ordinary Ubuntu VMs named <code>aos_vm1</code> through <code>aos_vm8</code>.</p>
+          <p>Each guest thinks it owns a CPU. It doesn't. Its "virtual CPU" (vCPU) is a thread on the host that the hypervisor runs on one of the real cores (pCPUs). The same goes for memory: the guest sees a block of RAM, but the host decides how much of it is real at any moment.</p>
+          <p>My two programs sit outside the VMs, in the host's user space, and talk to the hypervisor through <strong>libvirt</strong>, the same C library that tools like <code>virsh</code> and virt-manager use.</p>
+
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 720 230" role="img" aria-label="Diagram of the stack: eight VMs on top of the KVM hypervisor on top of hardware with four cores; my two programs talk to libvirt, which talks to the hypervisor.">
+              <!-- VMs -->
+              <g>
+                <rect class="d-box vm" x="16" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="42" y="40" text-anchor="middle">vm1</text>
+                <rect class="d-box vm" x="73.5" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="99.5" y="40" text-anchor="middle">vm2</text>
+                <rect class="d-box vm" x="131" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="157" y="40" text-anchor="middle">vm3</text>
+                <rect class="d-box vm" x="188.5" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="214.5" y="40" text-anchor="middle">vm4</text>
+                <rect class="d-box vm" x="246" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="272" y="40" text-anchor="middle">vm5</text>
+                <rect class="d-box vm" x="303.5" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="329.5" y="40" text-anchor="middle">vm6</text>
+                <rect class="d-box vm" x="361" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="387" y="40" text-anchor="middle">vm7</text>
+                <rect class="d-box vm" x="418.5" y="16" width="52" height="40" rx="6"></rect><text class="d-text mono" x="444.5" y="40" text-anchor="middle">vm8</text>
+                <text class="d-text small" x="16" y="72">8 guests · 1 vCPU each · 256–512 MB to start</text>
+              </g>
+              <!-- hypervisor -->
+              <rect class="d-box" x="16" y="92" width="454" height="40" rx="6"></rect>
+              <text class="d-text strong" x="28" y="110">KVM / QEMU hypervisor</text>
+              <text class="d-text small" x="28" y="124">runs each vCPU as a thread on a real core; hands out memory</text>
+              <!-- hardware -->
+              <rect class="d-box" x="16" y="158" width="454" height="56" rx="6"></rect>
+              <text class="d-text strong" x="28" y="178">Hardware</text>
+              <rect class="d-box core" x="100" y="182" width="70" height="24" rx="4"></rect><text class="d-text mono" x="135" y="198" text-anchor="middle">pCPU 0</text>
+              <rect class="d-box core" x="178" y="182" width="70" height="24" rx="4"></rect><text class="d-text mono" x="213" y="198" text-anchor="middle">pCPU 1</text>
+              <rect class="d-box core" x="256" y="182" width="70" height="24" rx="4"></rect><text class="d-text mono" x="291" y="198" text-anchor="middle">pCPU 2</text>
+              <rect class="d-box core" x="334" y="182" width="70" height="24" rx="4"></rect><text class="d-text mono" x="369" y="198" text-anchor="middle">pCPU 3</text>
+              <rect class="d-box core" x="416" y="182" width="46" height="24" rx="4"></rect><text class="d-text mono" x="439" y="198" text-anchor="middle">RAM</text>
+              <!-- links -->
+              <line class="d-line" x1="42" y1="56" x2="42" y2="92"></line><line class="d-line" x1="99.5" y1="56" x2="99.5" y2="92"></line><line class="d-line" x1="157" y1="56" x2="157" y2="92"></line><line class="d-line" x1="214.5" y1="56" x2="214.5" y2="92"></line><line class="d-line" x1="272" y1="56" x2="272" y2="92"></line><line class="d-line" x1="329.5" y1="56" x2="329.5" y2="92"></line><line class="d-line" x1="387" y1="56" x2="387" y2="92"></line><line class="d-line" x1="444.5" y1="56" x2="444.5" y2="92"></line>
+              <line class="d-line" x1="243" y1="132" x2="243" y2="158"></line>
+              <!-- host user space -->
+              <rect x="492" y="8" width="212" height="208" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="5 4"></rect>
+              <text class="d-text small" x="504" y="24">host user space · my code</text>
+              <rect class="d-box mine" x="504" y="32" width="188" height="24" rx="5"></rect><text class="d-text mono strong" x="598" y="48" text-anchor="middle">vcpu_scheduler</text>
+              <rect class="d-box mine" x="504" y="62" width="188" height="24" rx="5"></rect><text class="d-text mono strong" x="598" y="78" text-anchor="middle">memory_coordinator</text>
+              <line class="d-line accent" x1="598" y1="86" x2="598" y2="100" marker-end="url(#arrA)"></line>
+              <rect class="d-box" x="504" y="102" width="188" height="40" rx="6"></rect>
+              <text class="d-text strong" x="598" y="118" text-anchor="middle">libvirt API</text>
+              <text class="d-text small" x="598" y="133" text-anchor="middle">virConnect* · virDomain* · virNode*</text>
+              <line class="d-line accent" x1="504" y1="118" x2="472" y2="118" marker-end="url(#arrA)"></line>
+              <text class="d-text small" x="504" y="162">read: CPU time, pin map, memory stats</text>
+              <text class="d-text small" x="504" y="178">write: pin a vCPU to a core,</text>
+              <text class="d-text small" x="504" y="192">resize a VM's memory</text>
+            </svg></div>
+            <figcaption><b>Figure 1.</b> Where everything lives. My programs never touch the VMs directly; they read statistics and issue commands through libvirt, and the hypervisor carries them out.</figcaption>
+          </figure>
+
+          <div class="callout why">
+            <h5>Why this matters</h5>
+            <p>This is a small version of what every cloud provider does all day. Over-subscribe a host (more vCPUs than cores, more promised memory than RAM), then shuffle resources around so nobody notices. The interesting part is doing it from the outside, with only the statistics the hypervisor exposes.</p>
+          </div>
+        </section>
+
+        <!-- ---------- PART 1: CPU ---------- -->
+        <section id="cpu">
+          <div class="part-label">Part 1</div>
+          <h2>The vCPU scheduler</h2>
+
+          <h3 id="cpu-problem">The problem</h3>
+          <p>Eight vCPUs, four cores. If the hypervisor happens to put all eight on core 0, one core runs flat out while three sit idle. Every VM gets an eighth of a core instead of half of one. The job of the scheduler is to <strong>pin</strong> each vCPU to a core so the load is even, and to stop fiddling once it is.</p>
+
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 720 250" role="img" aria-label="Before: all eight VMs on core 0 at 100%, three cores idle. After: two VMs per core, each around 95%.">
+              <!-- BEFORE panel -->
+              <text class="d-text strong" x="16" y="22">Before: everything on one core</text>
+              <g>
+                <text class="d-text mono" x="61" y="44" text-anchor="middle" style="fill:var(--warn)">100%</text>
+                <text class="d-text mono small" x="141" y="44" text-anchor="middle">0%</text>
+                <text class="d-text mono small" x="221" y="44" text-anchor="middle">0%</text>
+                <text class="d-text mono small" x="301" y="44" text-anchor="middle">0%</text>
+                <rect class="d-box core" x="26" y="50" width="70" height="162" rx="6"></rect>
+                <rect class="d-box core" x="106" y="50" width="70" height="162" rx="6"></rect>
+                <rect class="d-box core" x="186" y="50" width="70" height="162" rx="6"></rect>
+                <rect class="d-box core" x="266" y="50" width="70" height="162" rx="6"></rect>
+                <text class="d-text mono small" x="61" y="230" text-anchor="middle">pCPU 0</text>
+                <text class="d-text mono small" x="141" y="230" text-anchor="middle">pCPU 1</text>
+                <text class="d-text mono small" x="221" y="230" text-anchor="middle">pCPU 2</text>
+                <text class="d-text mono small" x="301" y="230" text-anchor="middle">pCPU 3</text>
+                <rect class="d-chip" x="34" y="58" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="70" text-anchor="middle">vm1</text>
+                <rect class="d-chip" x="34" y="77" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="89" text-anchor="middle">vm2</text>
+                <rect class="d-chip" x="34" y="96" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="108" text-anchor="middle">vm3</text>
+                <rect class="d-chip" x="34" y="115" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="127" text-anchor="middle">vm4</text>
+                <rect class="d-chip" x="34" y="134" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="146" text-anchor="middle">vm5</text>
+                <rect class="d-chip" x="34" y="153" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="165" text-anchor="middle">vm6</text>
+                <rect class="d-chip" x="34" y="172" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="184" text-anchor="middle">vm7</text>
+                <rect class="d-chip" x="34" y="191" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="61" y="203" text-anchor="middle">vm8</text>
+              </g>
+              <!-- arrow between panels -->
+              <line class="d-line accent" x1="348" y1="130" x2="370" y2="130" marker-end="url(#arrA)"></line>
+              <!-- AFTER panel -->
+              <text class="d-text strong" x="384" y="22">After: two vCPUs per core</text>
+              <g>
+                <text class="d-text mono" x="429" y="44" text-anchor="middle" style="fill:var(--ok)">~95%</text>
+                <text class="d-text mono" x="509" y="44" text-anchor="middle" style="fill:var(--ok)">~95%</text>
+                <text class="d-text mono" x="589" y="44" text-anchor="middle" style="fill:var(--ok)">~95%</text>
+                <text class="d-text mono" x="669" y="44" text-anchor="middle" style="fill:var(--ok)">~95%</text>
+                <rect class="d-box core" x="394" y="50" width="70" height="162" rx="6"></rect>
+                <rect class="d-box core" x="474" y="50" width="70" height="162" rx="6"></rect>
+                <rect class="d-box core" x="554" y="50" width="70" height="162" rx="6"></rect>
+                <rect class="d-box core" x="634" y="50" width="70" height="162" rx="6"></rect>
+                <text class="d-text mono small" x="429" y="230" text-anchor="middle">pCPU 0</text>
+                <text class="d-text mono small" x="509" y="230" text-anchor="middle">pCPU 1</text>
+                <text class="d-text mono small" x="589" y="230" text-anchor="middle">pCPU 2</text>
+                <text class="d-text mono small" x="669" y="230" text-anchor="middle">pCPU 3</text>
+                <rect class="d-chip" x="402" y="58" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="429" y="70" text-anchor="middle">vm1</text>
+                <rect class="d-chip" x="402" y="77" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="429" y="89" text-anchor="middle">vm4</text>
+                <rect class="d-chip" x="482" y="58" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="509" y="70" text-anchor="middle">vm6</text>
+                <rect class="d-chip" x="482" y="77" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="509" y="89" text-anchor="middle">vm8</text>
+                <rect class="d-chip" x="562" y="58" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="589" y="70" text-anchor="middle">vm5</text>
+                <rect class="d-chip" x="562" y="77" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="589" y="89" text-anchor="middle">vm7</text>
+                <rect class="d-chip" x="642" y="58" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="669" y="70" text-anchor="middle">vm2</text>
+                <rect class="d-chip" x="642" y="77" width="54" height="16" rx="3"></rect><text class="d-chip-text" x="669" y="89" text-anchor="middle">vm3</text>
+              </g>
+            </svg></div>
+            <figcaption><b>Figure 2.</b> The starting state of test 2 and where the scheduler ends up. The "after" layout is the actual pin map from my recorded run.</figcaption>
+          </figure>
+
+          <p>Two words from the project spec drove the design:</p>
+          <ul>
+            <li><strong>Balanced:</strong> no core is noticeably busier than the others. The measure is the standard deviation of the four cores' utilization; under 5 counts as balanced.</li>
+            <li><strong>Stable:</strong> once balanced, don't keep moving vCPUs around. Every re-pin costs a cache flush and a scheduling hiccup inside the guest, so a scheduler that "fixes" a balanced system every interval is worse than one that does nothing.</li>
+          </ul>
+
+          <h3 id="cpu-steps">The loop, step by step</h3>
+          <p>The program takes one argument, the interval in seconds, and repeats the same six steps until you press Ctrl-C.</p>
+
+          <div class="steps">
+            <div class="step">
+              <h4>Connect to the hypervisor</h4>
+              <p>Open a connection to the local KVM instance. Everything else goes through this handle.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p><code>virConnectOpen("qemu:///system")</code>. The <code>system</code> URI means the host-wide daemon, which is the one that owns the VMs launched by root or virt-manager. The connection stays open for the life of the program.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>List the running VMs</h4>
+              <p>Ask libvirt for every active guest. The scheduler should work for any number of VMs, so nothing is hard-coded.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p><code>virConnectListDomains</code> returns the IDs of running domains; <code>virDomainLookupByID</code> turns each into a handle. VMs can come and go between intervals, so the list is rebuilt every pass.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Measure each vCPU</h4>
+              <p>For every VM, read two things: how much CPU time it has used, and which physical core it's currently on.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>The CPU time comes from <code>virDomainGetCPUStats</code> as a cumulative counter in <strong>nanoseconds</strong> since the VM booted, not as a percentage. Converting it takes two samples:</p>
+                <pre class="code"><span class="c"># one interval of real time is interval × 10⁹ ns</span>
+usage% = (cpu_time_now − cpu_time_last) / (interval × 1e9) × 100</pre>
+                <p>A vCPU that is busy for the whole interval comes out near 100%. The current core comes from <code>virDomainGetVcpus</code>, which fills a <code>virVcpuInfo</code> struct whose <code>cpu</code> field is the pCPU the vCPU last ran on.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Add it up per core</h4>
+              <p>Sum the usage of every vCPU pinned to each core. Now there are four numbers, one per pCPU, and that is all the decision needs.</p>
+            </div>
+            <div class="step">
+              <h4>Decide</h4>
+              <p>Three cases, checked in order:</p>
+              <ul>
+                <li><strong>First pass:</strong> no history yet, so deal the vCPUs out round-robin: VM 1 to core 0, VM 2 to core 1, and so on, wrapping around. This instantly fixes the "everything on core 0" case.</li>
+                <li><strong>Every core is within a band around the target load:</strong> do nothing. This is the stability rule.</li>
+                <li><strong>Otherwise:</strong> re-plan. Walk through the vCPUs and give each one to whichever core currently has the least load, adding its usage to that core's tally as you go. A greedy pass like this gets within a few percent of optimal for workloads this size.</li>
+              </ul>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>The target load per core is the total vCPU usage divided evenly across the cores. In my submission the band was ±10% of that target. Wider bands tolerate noisy readings but let real imbalance persist; narrower bands react faster but risk re-pinning on noise. I settled on 10% after watching the monitor flip-flop at 5%.</p>
+                <pre class="code">load[c] = Σ usage of vCPUs on core c
+
+<span class="k">if</span> first_run:
+    pin vm_i → pcpu (i <span class="k">mod</span> num_pcpus)          <span class="c"># round robin</span>
+<span class="k">elif</span> every load[c] within ±10% of target:
+    <span class="k">return</span>                                  <span class="c"># stable: leave it alone</span>
+<span class="k">else</span>:
+    <span class="k">for</span> vm <span class="k">in</span> vms:                            <span class="c"># greedy rebalance</span>
+        c = argmin(load)
+        pin(vm, c)
+        load[c] += usage[vm]</pre>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Act, then sleep</h4>
+              <p>Apply the new pins through libvirt, sleep for the interval, and go back to step 2.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p><code>virDomainPinVcpu(domain, vcpu, cpumap, maplen)</code> takes a <strong>bitmap</strong>: bit <em>i</em> set means the vCPU may run on pCPU <em>i</em>. Pinning to a single core is a one-byte map with one bit set (<code>1 &lt;&lt; core</code>). The call changes the affinity of the host thread that backs the vCPU, so the Linux scheduler moves it immediately. A SIGINT handler flips an exit flag so the loop ends cleanly and the connection is closed.</p>
+              </details>
+            </div>
+          </div>
+
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 720 150" role="img" aria-label="Loop: measure, decide, act, sleep, repeat.">
+              <rect class="d-box" x="20" y="30" width="140" height="54" rx="8"></rect>
+              <text class="d-text strong" x="90" y="52" text-anchor="middle">Measure</text>
+              <text class="d-text small" x="90" y="68" text-anchor="middle">CPU time + core, per VM</text>
+              <rect class="d-box" x="200" y="30" width="140" height="54" rx="8"></rect>
+              <text class="d-text strong" x="270" y="52" text-anchor="middle">Decide</text>
+              <text class="d-text small" x="270" y="68" text-anchor="middle">balanced? else re-plan</text>
+              <rect class="d-box mine" x="380" y="30" width="140" height="54" rx="8"></rect>
+              <text class="d-text strong" x="450" y="52" text-anchor="middle">Act</text>
+              <text class="d-text small" x="450" y="68" text-anchor="middle">pin vCPUs (if needed)</text>
+              <rect class="d-box" x="560" y="30" width="140" height="54" rx="8"></rect>
+              <text class="d-text strong" x="630" y="52" text-anchor="middle">Sleep</text>
+              <text class="d-text small" x="630" y="68" text-anchor="middle">interval seconds</text>
+              <line class="d-line" x1="160" y1="57" x2="198" y2="57" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="340" y1="57" x2="378" y2="57" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="520" y1="57" x2="558" y2="57" marker-end="url(#arr)"></line>
+              <path class="d-line" d="M630,84 L630,118 L90,118 L90,88" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="360" y="134" text-anchor="middle">repeat until Ctrl-C · the memory coordinator runs the same loop with different measure/act steps</text>
+            </svg></div>
+            <figcaption><b>Figure 3.</b> The control loop. "Act" is skipped entirely when the cores are already balanced.</figcaption>
+          </figure>
+
+          <h3 id="cpu-replay">Watch a real run</h3>
+          <p>This is test 2 from my recorded logs, where all eight VMs start on core 0 and then launch a CPU-heavy workload. Each bar is one physical core; the chips are the VMs pinned to it. Press play or drag the slider.</p>
+          <div class="replay" id="replay">
+            <div class="replay-cores" id="rp-cores"></div>
+            <div class="replay-ctl">
+              <button id="rp-play" type="button">Play</button>
+              <label class="sr-only" for="rp-slider">Iteration</label>
+              <input id="rp-slider" type="range" min="1" max="25" value="1">
+              <span class="iter" id="rp-iter">Iteration 1 / 25</span>
+              <span class="sd" id="rp-sd"></span>
+            </div>
+            <p class="replay-note" id="rp-note"></p>
+          </div>
+          <p class="hint">Usage numbers and pin maps are exactly as the course's monitor tool logged them on the real host. The monitor samples once per interval.</p>
+
+          <h3 id="cpu-results">Results</h3>
+          <p>All three CPU tests were recorded for 25 monitor samples each. Once the workloads were running, every core sat in the 90s on every test, and the pin map changed at most twice per run.</p>
+          <div class="stats">
+            <div class="stat"><div class="v">1</div><div class="l">re-pin in 25 samples once load appeared (test 2: all VMs started on core 0)</div></div>
+            <div class="stat"><div class="v">88–102%</div><div class="l">per-core usage across all three tests once the workloads were running</div></div>
+            <div class="stat"><div class="v">σ ≤ 2.8</div><div class="l">worst-case spread between cores on any sample; the spec's balanced threshold is 5</div></div>
+          </div>
+          <figure>
+            <div class="chart" id="chart-cpu2"></div>
+            <div class="legend-inline">
+              <span><i style="background:var(--core0)"></i>pCPU 0</span><span><i style="background:var(--core1)"></i>pCPU 1</span><span><i style="background:var(--core2)"></i>pCPU 2</span><span><i style="background:var(--core3)"></i>pCPU 3</span>
+            </div>
+            <figcaption><b>Figure 4.</b> Test 2, per-core usage from the monitor log. The workload starts between samples 6 and 7; the only re-pin happens at sample 6, before the load fully ramps. The four lines then stay on top of each other for 19 samples.</figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table class="rules wide">
+              <thead><tr><th>Test</th><th>Scenario</th><th>Pin changes</th><th>Usage once loaded</th><th>Max σ</th></tr></thead>
+              <tbody>
+                <tr><td class="num">1</td><td>Already balanced, 2 VMs per core, equal loads</td><td class="num">2 (samples 5–6, before load)</td><td class="num">88–99%</td><td class="num">2.8</td></tr>
+                <tr><td class="num">2</td><td>All 8 VMs pinned to core 0, equal loads</td><td class="num">1 (sample 6)</td><td class="num">91–100%</td><td class="num">2.7</td></tr>
+                <tr><td class="num">3</td><td>Mixed heavy and light loads, random initial pins</td><td class="num">2 (samples 5–6)</td><td class="num">94–102%</td><td class="num">1.6</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ---------- PART 2: MEMORY ---------- -->
+        <section id="mem">
+          <div class="part-label">Part 2</div>
+          <h2>The memory coordinator</h2>
+
+          <h3 id="mem-problem">The problem</h3>
+          <p>A VM's memory is set when it boots. If VM 1 then starts a program that needs more, it has nowhere to get it from, while VMs 2 through 8 sit on memory they aren't using. The coordinator's job is to move memory from VMs that don't need it to VMs that do, without ever starving a guest or the host.</p>
+          <p>The mechanism that makes this possible is the <strong>balloon driver</strong>. It's a small driver inside each guest that can "inflate", grabbing pages of guest memory and handing them back to the host, or "deflate", returning them to the guest. From the host, inflating the balloon looks like shrinking the VM.</p>
+
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 720 220" role="img" aria-label="Two views of a guest's memory: balloon deflated, the guest has all 512 MB; balloon inflated by 100 MB, the guest sees 412 MB and the host gets 100 MB back.">
+              <!-- legend -->
+              <rect class="d-fill-used" x="16" y="14" width="14" height="10" rx="2"></rect><text class="d-text small" x="36" y="23">in use by the guest</text>
+              <rect class="d-fill-free" x="150" y="14" width="14" height="10" rx="2"></rect><text class="d-text small" x="170" y="23">free inside the guest ("unused")</text>
+              <rect class="d-fill-balloon" x="356" y="14" width="14" height="10" rx="2"></rect><text class="d-text small" x="376" y="23">balloon: returned to the host</text>
+              <!-- left VM -->
+              <rect class="d-box vm" x="16" y="40" width="330" height="140" rx="8"></rect>
+              <text class="d-text strong" x="32" y="62">Guest VM · balloon deflated</text>
+              <text class="d-text small" x="32" y="78">configured 512 MB · guest sees 512 MB</text>
+              <rect class="d-fill-used" x="32" y="92" width="170" height="36"></rect>
+              <rect class="d-fill-free" x="202" y="92" width="128" height="36"></rect>
+              <text class="d-text mono small" x="117" y="146" text-anchor="middle">~280 MB used</text>
+              <text class="d-text mono small" x="266" y="146" text-anchor="middle">~230 MB unused</text>
+              <text class="d-text small" x="32" y="168">plenty spare → a candidate to give some back</text>
+              <!-- right VM -->
+              <rect class="d-box vm" x="374" y="40" width="330" height="140" rx="8"></rect>
+              <text class="d-text strong" x="390" y="62">Guest VM · balloon inflated by 100 MB</text>
+              <text class="d-text small" x="390" y="78">configured 512 MB · guest sees 412 MB</text>
+              <rect class="d-fill-used" x="390" y="92" width="170" height="36"></rect>
+              <rect class="d-fill-free" x="560" y="92" width="68" height="36"></rect>
+              <rect class="d-fill-balloon" x="628" y="92" width="60" height="36"></rect>
+              <text class="d-text mono small" x="475" y="146" text-anchor="middle">~280 MB used</text>
+              <text class="d-text mono small" x="594" y="146" text-anchor="middle">~130 MB</text>
+              <text class="d-text mono small" x="658" y="146" text-anchor="middle">100 MB</text>
+              <line class="d-line accent" x1="658" y1="128" x2="658" y2="196" marker-end="url(#arrA)"></line>
+              <text class="d-text small" x="650" y="208" text-anchor="end">→ back to the host's free pool</text>
+            </svg></div>
+            <figcaption><b>Figure 5.</b> The balloon driver. Setting a VM's memory lower through libvirt tells the guest's balloon to inflate; setting it higher lets it deflate. The guest's kernel handles the rest.</figcaption>
+          </figure>
+
+          <h3>What the coordinator can see</h3>
+          <p>For each VM, libvirt reports a handful of memory statistics. I used two: <strong>actual</strong>, the current balloon target (how much memory the VM has right now), and <strong>unused</strong>, how much of that the guest reports as free. From the host side it also reads the host's own free memory. That's enough to tell who is starving, who is hoarding, and whether the host can afford to give.</p>
+          <details class="deep"><summary>Under the hood</summary>
+            <p>Memory stats come from <code>virDomainMemoryStats</code>, which returns tagged values: <code>VIR_DOMAIN_MEMORY_STAT_ACTUAL_BALLOON</code>, <code>…_UNUSED</code>, <code>…_AVAILABLE</code> and others, all in kilobytes. The guest only reports them if collection is switched on with <code>virDomainSetMemoryStatsPeriod</code>; without that call the "unused" field never appears. Host free memory comes from <code>virNodeGetMemoryStats</code>. Resizing is a single call, <code>virDomainSetMemory(domain, kilobytes)</code>, which sets the new balloon target.</p>
+          </details>
+
+          <h3 id="mem-rules">The rules</h3>
+          <p>Each interval, the coordinator walks through the VMs and applies one of two rules. The thresholds came from the project's safety requirements plus some tuning against the test workloads.</p>
+          <div class="table-wrap">
+            <table class="rules">
+              <thead><tr><th>If a VM has…</th><th>It is…</th><th>Action</th><th>Guard</th></tr></thead>
+              <tbody>
+                <tr><td class="num">&lt; 90 MB unused</td><td>starving</td><td class="give">+100 MB</td><td>only if the host keeps ≥ 200 MB free; otherwise borrow 100 MB from a VM with &gt; 150 MB unused</td></tr>
+                <tr><td class="num">200–250 MB unused</td><td>hoarding a little</td><td class="take">−30 MB</td><td rowspan="3">never leaves a guest with less than 100 MB unused; shrinks in steps, not all at once</td></tr>
+                <tr><td class="num">250–300 MB unused</td><td>hoarding</td><td class="take">−70 MB</td></tr>
+                <tr><td class="num">&gt; 300 MB unused</td><td>hoarding a lot</td><td class="take">−100 MB</td></tr>
+                <tr><td class="num">90–200 MB unused</td><td>comfortable</td><td>nothing</td><td>the dead zone that keeps the system from oscillating</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Two things in that table are deliberate. The <strong>dead zone</strong> between 90 and 200 MB means a VM that just received memory isn't immediately asked to give it back. And reclaiming happens in <strong>graduated steps</strong>, because yanking 500 MB from a guest in one go can push it into swapping before its kernel has time to react; the spec explicitly asked for gradual release.</p>
+          <details class="deep"><summary>Under the hood</summary>
+            <pre class="code">host_free = node_free_memory_mb()
+<span class="k">for</span> vm <span class="k">in</span> running_vms:
+    actual, unused = memory_stats(vm)        <span class="c"># MB</span>
+    <span class="k">if</span> unused &lt; 90:                            <span class="c"># starving</span>
+        <span class="k">if</span> host_free &gt;= 200:
+            set_memory(vm, actual + 100)
+        <span class="k">else</span>:                                  <span class="c"># host is tight: rob a hoarder</span>
+            donor = first vm with unused &gt; 150
+            set_memory(donor, donor.actual − 100)
+            set_memory(vm, actual + 100)
+    <span class="k">elif</span> unused &gt; 200:                         <span class="c"># hoarding: give back gradually</span>
+        step = 100 <span class="k">if</span> unused &gt; 300 <span class="k">else</span> 70 <span class="k">if</span> unused &gt; 250 <span class="k">else</span> 30
+        set_memory(vm, actual − step)
+sleep(interval)</pre>
+            <p>The borrow-from-a-hoarder branch is what keeps the host alive when every VM wants memory at once: instead of handing out the host's last 200 MB, the coordinator shuffles memory between guests.</p>
+          </details>
+
+          <h3 id="mem-results">Results</h3>
+          <p>Memory test 1 is the clearest picture of the rules at work. Only <code>aos_vm2</code> runs a workload; the other seven idle.</p>
+          <figure>
+            <div class="chart" id="chart-mem1"></div>
+            <div class="legend-inline">
+              <span><i style="background:var(--core1)"></i>vm2 · memory it holds (actual)</span><span><i style="background:var(--core2)"></i>vm2 · unused inside the guest</span><span><i style="background:var(--muted)"></i>vm1 (idle) · memory it holds</span>
+            </div>
+            <figcaption><b>Figure 6.</b> Memory test 1. Every time vm2's unused memory dips under 90 MB (the lower dashed line) it gets another 100 MB, climbing from 256 MB to 1.2 GB. At sample 33 the workload exits and 1 GB is suddenly unused, so the coordinator reclaims 100 MB per sample until vm2 is back to 292 MB. The idle vm1 gets topped up once early on and then sits at 332 MB with 146 MB spare, inside the dead zone.</figcaption>
+          </figure>
+          <p>Test 3 starts the other way round: every VM is bloated from the previous test, holding 1.2–1.3 GB with over a gigabyte unused.</p>
+          <figure>
+            <div class="chart" id="chart-mem3"></div>
+            <div class="legend-inline">
+              <span><i style="background:var(--muted)"></i>idle VMs</span><span><i style="background:var(--core3)"></i>vm2</span><span><i style="background:var(--core1)"></i>vm4</span>
+            </div>
+            <figcaption><b>Figure 7.</b> Memory test 3. All eight VMs are shrunk in steps back to 285–340 MB within 11 samples. vm2 and vm4 then start workloads and are grown again. vm2's workload ends around sample 24 and it is shrunk straight back; vm4 keeps going to 1.6 GB. The six idle VMs are left alone. Nothing was ever pushed below the 100 MB spare floor.</figcaption>
+          </figure>
+          <div class="stats">
+            <div class="stat"><div class="v">256 → 1,202 MB</div><div class="l">vm2 grown in 100 MB steps while its workload ran (test 1)</div></div>
+            <div class="stat"><div class="v">11 samples</div><div class="l">to shrink eight bloated VMs from ~1.3 GB each back to ~320 MB (test 3)</div></div>
+            <div class="stat"><div class="v">≥ 100 MB</div><div class="l">spare memory left in every guest at every sample, across all three tests</div></div>
+          </div>
+        </section>
+
+        <!-- ---------- TESTING ---------- -->
+        <section id="testing">
+          <div class="part-label">Verification</div>
+          <h2>How I tested it</h2>
+          <p>You can't unit-test a hypervisor policy on a laptop, so the test setup was a real one: an Ubuntu virtual machine in Azure with nested virtualization turned on, running KVM, with eight guest VMs cloned from one image. For development I used a Vagrant box with the same layout.</p>
+          <p>Each test was a three-terminal affair:</p>
+          <ol>
+            <li>Start <code>script</code> to record everything printed in the terminal to a log file.</li>
+            <li>Run the course's monitor, which samples every VM through libvirt once per interval and prints the pin map and usage (or the memory numbers) in a fixed format. It also launches the workload inside the guests over SSH.</li>
+            <li>In another terminal, start my scheduler or coordinator with a 2-second interval and let it run until the monitor's samples settle.</li>
+          </ol>
+          <p>Six recordings came out of this, three for CPU and three for memory, and every chart on this page is drawn from them. Here is what the monitor printed around the moment the test-2 workload kicked in:</p>
+          <div class="term"><span class="p">$</span> python3 monitor.py -t runtest2.py
+<span class="dim">Iteration number :  6</span>
+0 - usage: 6.0  | mapping ['aos_vm4', 'aos_vm1']
+1 - usage: 5.0  | mapping ['aos_vm6', 'aos_vm8']
+2 - usage: 6.0  | mapping ['aos_vm5', 'aos_vm7']
+3 - usage: 9.0  | mapping ['aos_vm2', 'aos_vm3']
+<span class="dim">--------------------------------------------------
+Iteration number :  7</span>
+0 - usage: 96.0 | mapping ['aos_vm4', 'aos_vm1']
+1 - usage: 96.0 | mapping ['aos_vm6', 'aos_vm8']
+2 - usage: 95.0 | mapping ['aos_vm5', 'aos_vm7']
+3 - usage: 93.0 | mapping ['aos_vm2', 'aos_vm3']</div>
+          <p>The three CPU scenarios were: already balanced (the scheduler should do nothing), everything on core 0 (it should spread them out), and a mix of heavy and light VMs placed at random (it should pair heavy with light). The three memory scenarios were: one VM hungry, all VMs hungry, and VMs that have been hungry and then go idle.</p>
+        </section>
+
+        <!-- ---------- LESSONS ---------- -->
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What I'd do differently</h2>
+          <p>The programs passed their tests, but reading the code a year later I can see four things I'd change.</p>
+          <ol class="lessons">
+            <li><b>Measure usage per interval, not since boot.</b> My submitted scheduler compared the VMs' cumulative CPU-time counters directly. That works when every VM booted at the same time and runs a similar load (which the tests did), but a VM that was busy an hour ago would look "busy" forever. The fix is the subtraction shown in step 3: keep the previous sample and use the difference.</li>
+            <li><b>Derive the target from the counts, not an assumption.</b> The balance band was built around "two vCPUs per core", which is true for 8 VMs on 4 cores and false for anything else. The target should simply be total usage divided by the number of cores.</li>
+            <li><b>Sort before the greedy pass.</b> Assigning the biggest loads first (the classic longest-processing-time rule) gets closer to optimal than walking the VMs in ID order, especially with mixed heavy and light workloads.</li>
+            <li><b>Add hysteresis to the memory rules.</b> The dead zone helps, but a VM sitting right at 90 MB unused can be topped up every single interval. Requiring two consecutive readings below the threshold would cut needless balloon churn.</li>
+          </ol>
+        </section>
+
+        <!-- ---------- GLOSSARY ---------- -->
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>hypervisor</dt><dd>Software that runs virtual machines. KVM is Linux's built-in one; QEMU provides the virtual hardware.</dd></div>
+            <div><dt>libvirt</dt><dd>A C library and daemon that gives one API for managing VMs on any hypervisor. My programs are libvirt clients.</dd></div>
+            <div><dt>vCPU / pCPU</dt><dd>A virtual CPU as seen by a guest, and a physical core on the host. Several vCPUs can share one pCPU.</dd></div>
+            <div><dt>pinning</dt><dd>Restricting a vCPU to a specific pCPU (or set of them). Without pinning, the host's scheduler moves vCPUs around freely.</dd></div>
+            <div><dt>balloon driver</dt><dd>A driver inside the guest that can hand memory back to the host (inflate) or take it back (deflate) on request.</dd></div>
+            <div><dt>actual / unused</dt><dd>The two memory statistics I used: how much memory a VM currently holds, and how much of that its kernel reports as free.</dd></div>
+            <div><dt>standard deviation (σ)</dt><dd>How spread out the four cores' usage numbers are. Zero means perfectly even; the spec counted under 5 as balanced.</dd></div>
+            <div><dt>interval</dt><dd>How often the programs wake up, measure and act. The tests used 2 seconds.</dd></div>
+          </dl>
+          <div class="note" style="margin-top:28px">The source code for this project stays private under the Georgia Tech honor code. The diagrams, pseudocode and write-up on this page were made for the site; the charts are drawn from my own recorded test logs.</div>
+        </section>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../warehouse-search/index.html">← Warehouse search</a>
+      <a href="../../../projects.html">All projects →</a>
+    </nav>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="charts.js"></script>
+  <script src="../../shared/walkthrough.js"></script>
+</body>
+</html>

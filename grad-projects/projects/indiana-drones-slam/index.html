@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Indiana Drones · SLAM</title>
+  <meta name="description" content="Interactive online Graph SLAM demo: a drone maps a forest and navigates to treasure.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a class="active" href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 04 · Mapping + planning</div>
+      <h1>Indiana Drones: SLAM in the forest</h1>
+      <p class="lede">A drone lands somewhere in a forest with no map and no GPS. It can only measure distance and bearing to the trees it can see. It has to build a map, keep track of itself within that map, and fly to a treasure without hitting anything.</p>
+      <div class="tags"><span class="tag">Graph SLAM</span><span class="tag">information matrix</span><span class="tag">obstacle avoidance</span></div>
+    </section>
+
+    <section class="project">
+      <div class="demo-card">
+        <div class="screen"><canvas id="slam-canvas"></canvas></div>
+        <div class="controls">
+          <div class="group">
+            <button id="slam-play" class="primary">Pause</button>
+            <button id="slam-new">New forest</button>
+          </div>
+          <label>Navigate with
+            <select id="slam-mode">
+              <option value="slam" selected>SLAM</option>
+              <option value="dr">Dead reckoning only</option>
+            </select>
+          </label>
+          <label>Speed <input id="slam-speed" type="range" min="1" max="20" step="1" value="6"><span class="val" data-for="slam-speed"></span></label>
+          <label><input id="slam-truth" type="checkbox" checked> Show ground truth</label>
+        </div>
+        <div class="legend">
+          <span><i style="background:#ffd166"></i>SLAM map + path</span>
+          <span><i style="background:#8b95a6"></i>dead reckoning</span>
+          <span><i style="background:#ff6b6b"></i>true drone + path</span>
+          <span><i style="background:#3ddc97"></i>true trees</span>
+        </div>
+        <p class="hint" id="slam-tally">Treasures found · SLAM 0/0 · dead reckoning 0/0</p>
+      </div>
+
+      <!-- ===== WRITE-UP: edit freely ===== -->
+      <article class="writeup">
+        <h2>The problem</h2>
+        <p>The drone treats its landing spot as (0, 0). Each step it gets measurements to the trees within its sensing horizon, then issues a move (turn, then fly forward). Moves are noisy, so trusting the commands alone (dead reckoning) drifts further off every step.</p>
+        <p>Part A was pure SLAM: process a given sequence of moves and measurements, then report the drone's and every tree's position. Part B added planning: reach the treasure and extract it from within 0.25 m, without crashing into a tree.</p>
+
+        <h2>My approach</h2>
+        <ul>
+          <li><strong>Online Graph SLAM:</strong> I kept an information matrix Ω and vector ξ over the drone's pose and every tree seen so far. Each measurement adds a constraint between the drone and a tree, and a new tree grows the matrix by two rows and columns.</li>
+          <li><strong>Marginalizing old poses:</strong> after every move I inserted the new pose, linked it to the old one with the motion constraint, then folded the old pose away with the Schur complement (Ω′ = Ω − AᵀB⁻¹A). The matrix only grows with the number of trees, not with the number of steps.</li>
+          <li><strong>Estimate:</strong> μ = Ω⁻¹ξ gives the best guess for the drone and the whole map at once.</li>
+          <li><strong>Planner:</strong> fly straight at the treasure unless a mapped tree (using its measured radius plus a buffer) blocks the line. If one does, aim at a tangent point just outside it on the side closer to the goal. Steering and distance are clamped to the drone's limits.</li>
+        </ul>
+
+        <h3>What to try</h3>
+        <p>Switch to "Dead reckoning only." The drone flies confidently to where it thinks the treasure is and misses. SLAM uses the trees as reference points to correct its drift.</p>
+
+        <h3>About this demo</h3>
+        <p>This is a from-scratch JavaScript rebuild written for this page. My original Python solution stays private under the course honor code.</p>
+      </article>
+    </section>
+
+    <nav class="pager">
+      <a href="../drone-pid-control/index.html">← PID control</a>
+      <a href="../warehouse-search/index.html">Next: Warehouse search →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/common.js"></script>
+  <script src="forest-world.js"></script>
+  <script src="graph-slam.js"></script>
+  <script src="planner.js"></script>
+  <script src="mission.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>

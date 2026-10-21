@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Projects | Sehaj Singh</title>
+  <meta name="description" content="Graduate projects by Sehaj Singh: robotics demos you can play with in the browser, plus walkthroughs of a VM scheduler, kernel tasks, an iOS app, a Unity game, an autism-gene network and a curated world dataset.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Dancing+Script:wght@400..700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#FFF8F3">
+  <link rel="canonical" href="https://sehajroopsingh.github.io/sehaj-website/projects.html">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sehajroopsingh.github.io/sehaj-website/projects.html">
+  <meta property="og:image" content="https://sehajroopsingh.github.io/sehaj-website/images/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:site_name" content="Sehaj Singh">
+  <meta property="og:title" content="Projects | Sehaj Singh">
+  <meta property="og:description" content="Robotics demos you can play with in the browser, plus walkthroughs of a VM scheduler, kernel tasks, an iOS app, a Unity game, an autism-gene network and a curated world dataset.">
+
+  <link rel="stylesheet" href="css/style.css?v=39">
+  <link rel="stylesheet" href="css/coverflow.css?v=15">
+  <link rel="stylesheet" href="css/robotics-journey.css?v=13">
+  <link rel="stylesheet" href="css/phone-zoom.css?v=6">
+  <link rel="stylesheet" href="css/science-journey.css?v=7">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="container nav-bar">
+    <a class="brand" href="index.html">Sehaj <span>Singh</span></a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">Menu</button>
+    <nav aria-label="Main navigation">
+      <ul class="nav-links" id="nav-menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="projects.html" aria-current="page">Projects</a></li>
+        <li><a href="cv.html">CV</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <h1 id="projects-heading" class="visually-hidden">Projects</h1>
+
+  <!-- ═══════════════════ PROJECTS · COVER FLOW ═══════════════════
+       One section per course. Each section's projects show as album
+       covers with reflections (css/coverflow.css + js/coverflow.js).
+       To add a project, add it to the PROJECTS list in js/coverflow.js
+       with the matching group; to add a section, copy a cf-group block
+       and give it a new data-group. -->
+  <section class="cf-section" aria-labelledby="archive-heading">
+    <div class="container">
+      <h2 id="archive-heading" class="visually-hidden">The projects</h2>
+
+      <!-- Project picker: fixed at the right while you're in the projects, shows the current project and
+           lets you jump to any other (js/project-nav.js). data-range = where in its track a project is "current". -->
+      <nav class="pj-jump" aria-label="Jump to a project">
+        <button class="pj-jump-btn" type="button" aria-expanded="false" aria-controls="pj-jump-menu"><span class="pj-jump-now">Projects</span><span class="pj-jump-name">Jump to a project</span><i class="pj-jump-chev" aria-hidden="true"></i></button>
+        <div class="pj-jump-menu" id="pj-jump-menu" hidden>
+          <div class="pj-nav-group" data-label="Operating Systems · the chip"><b>AI for Robotics</b>
+            <a href="#robotics-journey" data-track="robotics-journey" data-idx="0" data-n="7" data-range="0-0.1429">Warehouse robot</a>
+            <a href="#robotics-journey" data-track="robotics-journey" data-idx="1" data-n="7" data-range="0.1429-0.2857">Indiana Drones · SLAM</a>
+            <a href="#robotics-journey" data-track="robotics-journey" data-idx="2" data-n="7" data-range="0.2857-0.4286">Drone control · PID</a>
+            <a href="#robotics-journey" data-track="robotics-journey" data-idx="3" data-n="7" data-range="0.4286-0.5714">HopScotch · Kalman</a>
+            <a href="#robotics-journey" data-track="robotics-journey" data-idx="4" data-n="7" data-range="0.5714-0.7143">Solar System · particle filter</a>
+            <a href="#robotics-journey" data-track="robotics-journey" data-idx="5" data-n="7" data-range="0.7143-1.01">Project Void · Unity game</a>
+          </div>
+          <div class="pj-nav-group" data-label="Operating Systems · the chip"><b>Operating Systems</b>
+            <a href="#osb-wrap" data-track="osb-wrap" data-at="0.03" data-range="0-0.2" data-multi>VM resource manager</a>
+            <a href="#osb-wrap" data-track="osb-wrap" data-at="0.03" data-range="0-0.2" data-multi>MIPS simulator</a>
+            <a href="#osb-wrap" data-track="osb-wrap" data-at="0.03" data-range="0-0.2" data-multi>InfOS kernel tasks</a>
+          </div>
+          <div class="pj-nav-group" data-label="Mobile · the two apps"><b>Mobile</b>
+            <a href="#osb-wrap" data-track="osb-wrap" data-at="0.8" data-range="0.2-1.01" data-multi>Screen Time Monitor</a>
+            <a href="#osb-wrap" data-track="osb-wrap" data-at="0.8" data-range="0.2-1.01" data-multi>MemSurf app</a>
+          </div>
+          <div class="pj-nav-group"><b>Science &amp; data</b>
+            <a href="#science-journey" data-track="science-journey" data-idx="0" data-n="6" data-range="0-0.3333">MemSurf</a>
+            <a href="#science-journey" data-track="science-journey" data-idx="2" data-n="6" data-range="0.3333-0.6667">Autism genes · bioinformatics</a>
+            <a href="#science-journey" data-track="science-journey" data-idx="5" data-n="6" data-range="0.6667-1.01">World DataSet · education</a>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ─────────────── AI FOR ROBOTICS ───────────────
+           A scroll-driven journey from the warehouse floor to deep space.
+           3D world: js/robotics/world3d.js · scroll: js/robotics/journey.js ·
+           card demos: js/robotics/mini-*.js · styles: css/robotics-journey.css -->
+      <div class="cf-group cf-group--board">
+        <h3 class="visually-hidden">AI for Robotics</h3>
+        <section class="rj" id="robotics-journey" aria-label="AI for Robotics projects">
+          <div class="rj-stage">
+            <canvas class="rj-canvas" aria-hidden="true"></canvas>
+            <canvas class="rj-exit" aria-hidden="true"></canvas>   <!-- the hand-off into the OS chip (js/robotics/exit.js) -->
+            <p class="rj-title">AI for Robotics · CS 7638 · scroll to travel from the warehouse to space, and into the game</p>
+            <ul class="rj-dots" aria-label="Scenes">
+              <li><button class="rj-dot" type="button"><span>Warehouse</span></button></li>
+              <li><button class="rj-dot" type="button"><span>Forest · SLAM</span></button></li>
+              <li><button class="rj-dot" type="button"><span>Drone · PID</span></button></li>
+              <li><button class="rj-dot" type="button"><span>Launch · HopScotch</span></button></li>
+              <li><button class="rj-dot" type="button"><span>Solar System</span></button></li>
+              <li><button class="rj-dot" type="button"><span>Inside the ship · Project Void</span></button></li>
+            </ul>
+
+            <!-- 1 · warehouse: a pick list on a clipboard -->
+            <article class="rj-card rj-card--manifest">
+              <div class="rj-clip"></div>
+              <div class="rj-stamp">Pick list</div>
+              <div class="cf-kind">Order 7638 · planning</div>
+              <h3>Warehouse: delivery robot</h3>
+              <p>Deliver boxes through a cluttered warehouse. A* finds the shortest path to each box and back to the dropzone; a second planner builds a full policy that still works when the wheels slip.</p>
+              <canvas class="rj-mini" data-mini="warehouse" aria-label="Mini warehouse: a robot follows A* paths to boxes"></canvas>
+              <a class="rj-link" href="grad-projects/projects/warehouse-search/index.html">Open the full floor plan →</a>
+            </article>
+
+            <!-- 2 · forest: the drone's heads-up display -->
+            <article class="rj-card rj-card--hud">
+              <i class="rj-hud-corner tl"></i><i class="rj-hud-corner tr"></i><i class="rj-hud-corner bl"></i><i class="rj-hud-corner br"></i>
+              <div class="rj-hud-top"><span>CAM 01 · FWD</span><span class="rj-readout" aria-live="polite"></span><span>GPS · NO FIX</span></div>
+              <div class="rj-hud-panel">
+                <div class="cf-kind">Mapping · Graph SLAM</div>
+                <h3>Indiana Drones</h3>
+                <p>No GPS, no map. As trees enter the camera's view the drone adds them to a graph; solving it tells it where every tree, and the drone itself, must be.</p>
+                <a class="rj-link" href="grad-projects/projects/indiana-drones-slam/index.html">Open flight log →</a>
+              </div>
+            </article>
+
+            <!-- 3 · drone: a cockpit instrument panel -->
+            <article class="rj-card rj-card--panel">
+              <div class="rj-panel-head"><span>ALTITUDE HOLD</span><span class="rj-readout" aria-live="polite"></span></div>
+              <canvas class="rj-mini rj-mini--scope" data-mini="pid" aria-label="Strip chart of the drone's altitude against its target"></canvas>
+              <div class="rj-panel-body">
+                <div>
+                  <div class="cf-kind">Control · PID + Twiddle</div>
+                  <h3>Drone Control</h3>
+                  <p>A PID controller flies the drone to each target; Twiddle tuned its gains. The small overshoot and settle is the D term at work.</p>
+                </div>
+                <a class="rj-link" href="grad-projects/projects/drone-pid-control/index.html">Open tuning notes →</a>
+              </div>
+            </article>
+
+            <!-- 4 · launch: mission-control console -->
+            <article class="rj-card rj-card--console">
+              <div class="rj-console-bar"><span>MISSION · HOPSCOTCH</span><span class="rj-clock">T+ 00:00</span><span class="rj-readout" aria-live="polite"></span></div>
+              <div class="rj-console-body">
+                <div class="rj-crt"><canvas class="rj-mini" data-mini="hopscotch" aria-label="Mini HopScotch: a ship hops between asteroids using predicted positions"></canvas></div>
+                <div>
+                  <div class="cf-kind">Tracking · Kalman filter</div>
+                  <h3>HopScotch</h3>
+                  <p>Asteroids drift past with noisy positions. One Kalman filter per rock predicts where it will be next, so the ship can jump without missing.</p>
+                  <a class="rj-link" href="grad-projects/projects/hopscotch-kalman-filter/index.html">Open telemetry →</a>
+                </div>
+              </div>
+            </article>
+
+            <!-- 5 · space: an observatory star chart -->
+            <article class="rj-card rj-card--chart">
+              <div class="rj-chart-rule">Plate IV · Localization</div>
+              <h3>Solar System: the lost satellite</h3>
+              <p>The satellite can only feel how hard gravity pulls. Scatter thousands of guesses, keep those that match the reading, repeat: the cloud closes in on the one place consistent with every measurement.</p>
+              <p class="rj-readout" aria-live="polite"></p>
+              <a class="rj-link" href="grad-projects/projects/solar-system-particle-filter/index.html">Chart this system →</a>
+            </article>
+
+            <!-- 6 · inside the ship: the Project Void film -->
+            <article class="rj-card rj-card--film" data-from="0.4" data-to="0.97">
+              <div class="rj-film-badge">
+                <div class="cf-kind">Video Game Design · CS 6457 · team game</div>
+                <h3>Project Void</h3>
+                <p>Built a Unity game with my team. I personally created all of the enemy AI: a finite state machine with patrol, chase, attack, search and retreat.</p>
+              </div>
+              <div class="rj-film-frame">
+                <div class="rj-film-video" data-mini="video" data-video="IkwZTIA8gIs" data-seconds="6.5" data-start="16"></div>
+                <a class="rj-film-cta" href="grad-projects/projects/unity-video-game-design/index.html">Click here to view the project →</a>
+              </div>
+              <p class="rj-film-fallback">If the video doesn't load, <a href="https://www.youtube.com/watch?v=IkwZTIA8gIs" target="_blank" rel="noopener">watch it on YouTube</a> · scroll on to continue</p>
+            </article>
+            <article class="rj-card rj-card--exit" aria-hidden="true"></article>   <!-- scene 6: the exit into the chip, no text -->
+
+            <p class="rj-hint">Keep scrolling</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- ─────────────── OPERATING SYSTEMS ───────────────
+           A CPU motherboard (js/os-board.js). It powers on when it scrolls
+           into view; hovering a node lights its trace and opens the project
+           with its live animation (grad-projects/shared/os-anims.js). -->
+      <div class="cf-group cf-group--board">
+        <h3 class="visually-hidden">Operating Systems, then Mobile &amp; Ubiquitous Computing</h3>
+        <!-- The board is pinned for seven screens: the first fifth to explore the chip's nodes, the rest to
+             zoom out from that same chip into the phone it lives in (js/phone-zoom.js). -->
+        <div class="osb-wrap" id="osb-wrap">
+        <div class="os-board" id="os-board">
+          <canvas class="osb-canvas" aria-hidden="true"></canvas>
+          <p class="osb-label"><span class="osb-label-os">Operating Systems <span>·</span> <span class="osb-hover">hover a node</span><span class="osb-tap">tap a node</span></span><span class="osb-label-pz">Mobile &amp; Ubiquitous Computing <span>·</span> <span class="pz-label">zooming out from the chip</span></span></p>
+
+          <button class="osb-node" data-node="aos" type="button" aria-expanded="false" aria-controls="osb-panel-aos">
+            <span class="osb-dot"></span><span class="osb-name">vCPU Scheduler</span>
+          </button>
+          <button class="osb-node" data-node="mips" type="button" aria-expanded="false" aria-controls="osb-panel-mips">
+            <span class="osb-dot"></span><span class="osb-name">MIPS Simulator</span>
+          </button>
+          <button class="osb-node" data-node="infos" type="button" aria-expanded="false" aria-controls="osb-panel-infos">
+            <span class="osb-dot"></span><span class="osb-name">InfOS Kernel</span>
+          </button>
+
+          <div class="osb-panel" id="osb-panel-aos" data-panel="aos" hidden role="dialog" aria-label="vCPU Scheduler and Memory Coordinator">
+            <button class="osb-close" type="button" aria-label="Close">&times;</button>
+            <div class="cf-kind">Walkthrough · CS 6210 · C · libvirt · KVM</div>
+            <h4 class="cf-title">vCPU Scheduler &amp; Memory Coordinator</h4>
+            <p class="osb-sum">Eight virtual machines, four physical cores. Every second the scheduler reads each core's load and moves a VM when they drift apart.</p>
+            <canvas class="osb-anim" aria-label="Animation: eight VMs balanced across four CPU cores"></canvas>
+            <p class="osb-read" aria-live="polite"></p>
+            <a class="cf-open" href="grad-projects/projects/aos-vm-resource-manager/index.html">Read the walkthrough</a>
+          </div>
+
+          <div class="osb-panel" id="osb-panel-mips" data-panel="mips" hidden role="dialog" aria-label="Multi-cycle MIPS Simulator">
+            <button class="osb-close" type="button" aria-label="Close">&times;</button>
+            <div class="cf-kind">Walkthrough · Computer Systems · C</div>
+            <h4 class="cf-title">Multi-cycle MIPS Processor Simulator</h4>
+            <p class="osb-sum">A processor written in C: each instruction is driven through fetch, decode, execute, memory and write-back by a control state machine, one clock cycle at a time.</p>
+            <canvas class="osb-anim" aria-label="Animation: a MIPS processor stepping a small program through its control state machine"></canvas>
+            <p class="osb-read" aria-live="polite"></p>
+            <a class="cf-open" href="grad-projects/projects/mips-multicycle-simulator/index.html">Read the walkthrough</a>
+          </div>
+
+          <div class="osb-panel" id="osb-panel-infos" data-panel="infos" hidden role="dialog" aria-label="InfOS Kernel">
+            <button class="osb-close" type="button" aria-label="Close">&times;</button>
+            <div class="cf-kind">Walkthrough · InfOS · C++ kernel</div>
+            <h4 class="cf-title">InfOS Kernel: scheduler, buddy allocator, block cache</h4>
+            <p class="osb-sum">Physical memory handed out in power-of-two blocks: big blocks split in half on demand, and a freed block merges back with its buddy, found with one XOR.</p>
+            <canvas class="osb-anim" aria-label="Animation: a buddy allocator splitting and merging sixteen memory pages"></canvas>
+            <p class="osb-read" aria-live="polite"></p>
+            <a class="cf-open" href="grad-projects/projects/infos-kernel-tasks/index.html">Read the walkthrough</a>
+          </div>
+
+          <!-- ─── the phone that the chip lives in (Mobile section) ─── -->
+          <div class="pz-world" id="phone-zoom">
+              <div class="pz-phone" aria-hidden="true">
+                <div class="pz-bezel"></div>
+                <div class="pz-notch"></div>
+                <div class="pz-screen">
+                  <div class="pz-status"><span>9:41</span><span>●●● ⌁ ▮</span></div>
+                  <div class="pz-icons">
+                    <i style="--c:#ff6b9a"></i><i style="--c:#74c0fc"></i><i style="--c:#63e6be"></i><i style="--c:#ffd166"></i>
+                    <i style="--c:#e599f7"></i><i style="--c:#ff8a5b"></i><i style="--c:#3ddc97"></i><i style="--c:#9fe1ff"></i>
+                    <i class="pz-icon-st" style="--c:#2b6cb0"></i><i style="--c:#f2b134"></i><i style="--c:#a78bfa"></i><i style="--c:#8a8f9c"></i>
+                  </div>
+                  <div class="pz-dock"><i></i><i></i><i></i><i></i></div>
+                </div>
+              </div>
+
+              <a class="pz-app" href="grad-projects/projects/muc-screen-time-app/index.html">
+                <span class="pz-app-icon" style="--c:#2b6cb0"><b></b></span>
+                <span class="pz-app-name">Screen Time Monitor</span>
+                <span class="pz-app-sub">Swift · SwiftUI · Screen Time API · Core Motion</span>
+                <span class="pz-app-text">Tracks app usage and movement through Apple's Screen Time and Core Motion frameworks, built around iOS's privacy rules. I owned the monitoring pipeline and the reports.</span>
+                <span class="pz-app-cta">Read the walkthrough →</span>
+              </a>
+              <a class="pz-app pz-app--memsurf" href="https://memsurf.com" target="_blank" rel="noopener">
+                <span class="pz-app-icon pz-app-icon--ms" style="--c:#6633c6"><b>M</b></span>
+                <span class="pz-app-name">MemSurf</span>
+                <span class="pz-app-sub">Founder · iOS · AI-native learning</span>
+                <span class="pz-app-text">Make knowledge stick. Send it notes, links and videos; it turns them into short lessons and quizzes scheduled to your memory.</span>
+                <span class="pz-app-more">
+                  <span class="pz-app-tag">Spaced repetition, run by an AI agent, on your phone.</span>
+                  <span class="pz-app-text">MemSurf turns whatever you're learning, notes, links, videos, ideas, into short lessons and quizzes, and schedules the next review for the moment your memory is about to let go. Adaptive difficulty keeps each one just hard enough.</span>
+                  <span class="pz-app-why"><!-- EDIT ME: this is the personal line; change it freely -->I built it because I'm obsessed with two things: how people learn, and the neuroscience underneath it. Memory is a biological process with a timetable, and software can keep that timetable better than we can.</span>
+                </span>
+                <span class="pz-app-cta">memsurf.com →</span>
+              </a>
+          </div>
+          <p class="osb-hint">Keep scrolling</p>
+        </div>
+        </div>
+      </div>
+
+      <!-- ─────────────── SCIENCE JOURNEY ───────────────
+           MemSurf → neurons & DNA → the autism paper → brain → head → crowd →
+           earth → data frame → World DataSet. 3D: js/science/world.js ·
+           scroll: js/science/journey.js · styles: css/science-journey.css -->
+      <div class="cf-group cf-group--board">
+        <h3 class="visually-hidden">MemSurf, Bioinformatics and Data Science</h3>
+        <section class="sj" id="science-journey" aria-label="MemSurf, bioinformatics and data science">
+          <div class="sj-stage">
+            <canvas class="sj-canvas" aria-hidden="true"></canvas>
+            <ul class="sj-dots" aria-label="Scenes">
+              <li><button class="sj-dot" type="button"><span>MemSurf</span></button></li>
+              <li><button class="sj-dot" type="button"><span>Neurons &amp; DNA</span></button></li>
+              <li><button class="sj-dot" type="button"><span>Autism genes</span></button></li>
+              <li><button class="sj-dot" type="button"><span>Brain → people</span></button></li>
+              <li><button class="sj-dot" type="button"><span>Earth</span></button></li>
+              <li><button class="sj-dot" type="button"><span>World DataSet</span></button></li>
+            </ul>
+
+            <!-- 0 · MemSurf: the app tile from the phone, centred and expanded -->
+            <!-- 0 · MemSurf: the very same card the phone section ended on (same markup, same box), so the page
+                 scrolls from one to the other without a seam; the neurons fade up behind it -->
+            <article class="sj-card sj-card--memsurf" data-from="-1">
+              <a class="pz-app pz-app--memsurf" href="https://memsurf.com" target="_blank" rel="noopener" style="--exp:1">
+                <span class="pz-app-icon pz-app-icon--ms" style="--c:#6633c6"><b>M</b></span>
+                <span class="pz-app-name">MemSurf</span>
+                <span class="pz-app-sub">Founder · iOS · AI-native learning</span>
+                <span class="pz-app-text">Make knowledge stick. Send it notes, links and videos; it turns them into short lessons and quizzes scheduled to your memory.</span>
+                <span class="pz-app-more">
+                  <span class="pz-app-tag">Spaced repetition, run by an AI agent, on your phone.</span>
+                  <span class="pz-app-text">MemSurf turns whatever you're learning, notes, links, videos, ideas, into short lessons and quizzes, and schedules the next review for the moment your memory is about to let go. Adaptive difficulty keeps each one just hard enough.</span>
+                  <span class="pz-app-why"><!-- EDIT ME: this is the personal line; change it freely -->I built it because I'm obsessed with two things: how people learn, and the neuroscience underneath it. Memory is a biological process with a timetable, and software can keep that timetable better than we can.</span>
+                </span>
+                <span class="pz-app-cta">memsurf.com →</span>
+              </a>
+            </article>
+
+            <!-- 1 · neurons & DNA -->
+            <article class="sj-card sj-card--lab">
+              <div class="cf-kind">From learning to the cell</div>
+              <h3>Memory is biology</h3>
+              <p>Every review in MemSurf is a bet on a biological event: an action potential crossing a synapse, and the synapse getting a little stronger for it. Follow the spikes along the axons. The strand on the right is where the instructions for all of it live.</p>
+            </article>
+
+            <!-- 2 · the autism paper -->
+            <article class="sj-card sj-card--paper">
+              <div class="sj-paper">
+                <div class="sj-paper-head"><span>Bioinformatics · individual project · 2022</span><span class="sj-paper-pulse">● spike at terminal</span></div>
+                <h3>Autism genes: from a database to a network</h3>
+                <p class="sj-paper-abstract">Starting from the SFARI list of autism-linked genes, I asked three questions with Python and a few web tools: what is the literature saying about these genes, what do they do, and do their proteins work together? The strongest-evidence genes interact three times more than chance and split into two groups: the machinery of the synapse, and the machinery that switches genes on and off in a developing brain.</p>
+                <dl class="sj-paper-stats"><div><dt>215</dt><dd>high-confidence genes</dd></div><div><dt>1,555</dt><dd>protein interactions · 461 expected</dd></div><div><dt>2</dt><dd>clusters: synapse · chromatin</dd></div></dl>
+                <a class="cf-open" href="grad-projects/projects/bioinformatics-autism-genes/index.html">Read the walkthrough</a>
+              </div>
+            </article>
+
+            <!-- 3 · brain → head → crowd -->
+            <article class="sj-card sj-card--zoom">
+              <div class="cf-kind">Zooming out</div>
+              <h3>One brain, then everyone's</h3>
+              <p>Genes make a brain, a brain makes a person, and the questions that matter next are about all of us: what shapes how long a child stays in school, who gets displaced, where emissions rise. That needs data about the world.</p>
+            </article>
+
+            <!-- 4 · earth -->
+            <article class="sj-card sj-card--zoom sj-card--earth">
+              <div class="cf-kind">198 countries · 1990–2020</div>
+              <h3>Every country, every year</h3>
+              <p>Health, causes of death, refugees, displacement, disasters and 1,400 development indicators, scattered across eight public portals that don't agree on country names or years. Watch the data lift off.</p>
+            </article>
+
+            <!-- 5 · data frame → World DataSet -->
+            <article class="sj-card sj-card--data" data-wait="dataFiled">
+              <div class="sj-df-head"><span>WDIDCombinedFinal.csv</span><span>6,137 rows × 239 columns</span></div>
+              <div class="cf-kind">Data science · group project</div>
+              <h3>World DataSet: what the numbers said</h3>
+              <ul class="sj-findings">
+                <li><b>Parents' schooling dominates.</b> r = 0.86 with the next generation's years in school; each extra year a parent had is worth about 0.67 years for the child.</li>
+                <li><b>Eight variables explain 83 %.</b> Political stability, income and education spending all help; the fit held (R² 0.80–0.83) for every parent–child pairing.</li>
+                <li><b>Heat is a decoy.</b> Hotter countries school their children less (r = −0.58), but split by income group the effect mostly disappears: geography standing in for wealth.</li>
+                <li><b>Scale before PCA.</b> Unscaled, the first component was just "income in dollars"; standardised, three axes carry 85 % of the variation.</li>
+              </ul>
+              <a class="cf-open" href="grad-projects/projects/world-dataset-education/index.html">Read the walkthrough →</a>
+            </article>
+            <p class="sj-hint">Keep scrolling</p>
+          </div>
+        </section>
+      </div>
+
+      <p class="cf-note">
+        The demos are new JavaScript rebuilds written for this site, and the walkthroughs
+        are my own summaries with diagrams made for the page. Original course solutions
+        stay private under the honor codes of the courses.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-name">Sehaj Singh</div>
+        <div class="footer-role">AI Engineer &middot; Forward-Deployed Engineer</div>
+      </div>
+      <ul class="footer-links">
+        <li><a href="projects.html">Projects</a></li>
+        <li><a href="cv.html">CV</a></li>
+        <li><a href="contact.html">Contact</a></li>
+        <li><a href="https://www.linkedin.com/in/sehajroop-singh/" target="_blank" rel="noopener">LinkedIn</a></li>
+        <li><a href="https://github.com/SehajroopSingh" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+    <p class="footer-copy">&copy; 2026 Sehaj Singh · Set in Playfair Display &amp; DM Sans · Made in Diamond Bar, California</p>
+  </div>
+</footer>
+
+<script src="js/main.js?v=39"></script>
+<script src="js/coverflow.js?v=2"></script>
+<script src="grad-projects/shared/os-anims.js?v=2"></script>
+<!-- TIMING: every scene-timing number lives in js/timing.js. Load it first. -->
+<script src="js/timing.js?v=22"></script>
+<script src="js/smooth-progress.js?v=2"></script>
+<script src="js/constellation.js?v=2"></script>
+<script src="js/project-nav.js?v=6"></script>
+<script src="js/os-board.js?v=7"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/three-kit.js?v=2"></script>
+<!-- robotics journey: assets (what's there) → scenes (what happens) → world (renderer + loop) → minis → journey (cards) -->
+<script src="js/robotics/assets.js?v=3"></script>
+<script src="js/robotics/scenes.js?v=12"></script>
+<script src="js/robotics/world3d.js?v=12"></script>
+<script src="js/robotics/mini-warehouse.js?v=1"></script>
+<script src="js/robotics/mini-hopscotch.js?v=1"></script>
+<script src="js/robotics/mini-pid.js?v=1"></script>
+<script src="js/robotics/mini-video.js?v=2"></script>
+<script src="js/robotics/exit.js?v=3"></script>
+<script src="js/robotics/journey.js?v=12"></script>
+<script src="js/phone-zoom.js?v=8"></script>
+<!-- science journey: same split -->
+<script src="js/science/assets.js?v=2"></script>
+<script src="js/science/scenes.js?v=4"></script>
+<script src="js/science/world.js?v=6"></script>
+<script src="js/science/journey.js?v=8"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HopScotch · Kalman Filter</title>
+  <meta name="description" content="Interactive Kalman filter demo: a ship hops across moving asteroids using predicted positions.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a class="active" href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 02 · Tracking</div>
+      <h1>HopScotch: hopping across asteroids</h1>
+      <p class="lede">A small ship has to get home by jumping from asteroid to asteroid. Its sensors only give noisy positions. To land safely it needs to know where each rock will be next, not where it seems to be now.</p>
+      <div class="tags"><span class="tag">Kalman filter</span><span class="tag">state estimation</span><span class="tag">multi-target tracking</span></div>
+    </section>
+
+    <section class="project">
+      <div class="demo-card">
+        <div class="screen"><canvas id="kf-canvas"></canvas></div>
+        <div class="controls">
+          <div class="group">
+            <button id="kf-play" class="primary">Pause</button>
+            <button id="kf-reset">New field</button>
+          </div>
+          <label>Aim using
+            <select id="kf-mode">
+              <option value="kalman" selected>Kalman prediction</option>
+              <option value="raw">Raw last measurement</option>
+            </select>
+          </label>
+          <label>Speed <input id="kf-speed" type="range" min="2" max="40" step="1" value="14"><span class="val" data-for="kf-speed"></span></label>
+          <label><input id="kf-noisy" type="checkbox" checked> Show noisy readings</label>
+        </div>
+        <div class="legend">
+          <span><i style="background:#b69cff"></i>noisy reading</span>
+          <span><i style="background:#ffd166"></i>predicted next position (landing zone)</span>
+          <span><i style="background:#3ddc97"></i>ship + jump range</span>
+        </div>
+        <p class="hint">Switch to "Raw last measurement" and watch the missed jumps (red) pile up.</p>
+      </div>
+
+      <!-- ===== WRITE-UP: edit freely ===== -->
+      <article class="writeup">
+        <h2>The problem</h2>
+        <p>Dozens of asteroids drift across the screen, each with its own velocity and acceleration. Every step the ship gets a noisy (x, y) reading for each one. The project had two parts: predict every asteroid's position one step into the future, then use those predictions to choose jumps that carry the ship to the top without missing a landing.</p>
+
+        <h2>My approach</h2>
+        <ul>
+          <li><strong>One filter per asteroid:</strong> a Kalman filter is created the first time an asteroid is seen and dropped when it disappears, so the tracker handles rocks coming and going.</li>
+          <li><strong>Constant-acceleration model:</strong> a 6-D state of position, velocity and acceleration. The transition matrix includes the ½·a terms, and the measurement matrix picks out position only.</li>
+          <li><strong>Tuning:</strong> I set a large initial covariance so unknown velocity and acceleration are learned quickly from the first few readings, and set the measurement noise to match the sensor.</li>
+          <li><strong>Jump policy:</strong> I only jumped to asteroids within about 77% of the maximum jump distance, as a safety margin. Candidates had to be higher than the current rock and, based on the filter's velocity estimate, moving upward and toward the center of the field.</li>
+        </ul>
+
+        <h3>Why it matters</h3>
+        <p>The HUD compares prediction error: the Kalman estimate is typically less than half the error of the raw reading, because it averages out the noise and accounts for motion. That margin is the difference between landing and falling.</p>
+
+        <h3>About this demo</h3>
+        <p>This is a from-scratch JavaScript rebuild written for this page. My original Python solution stays private under the course honor code.</p>
+      </article>
+    </section>
+
+    <nav class="pager">
+      <a href="../solar-system-particle-filter/index.html">← Particle filter</a>
+      <a href="../drone-pid-control/index.html">Next: PID control →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/common.js"></script>
+  <script src="kalman-filter.js"></script>
+  <script src="asteroid-field.js"></script>
+  <script src="hopper.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>

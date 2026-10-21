@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screen Time Monitor</title>
+  <meta name="description" content="An iOS app that tracks how you use your phone and your body, built in SwiftUI on Apple's Screen Time and Core Motion frameworks. A group project walkthrough.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a class="active" href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 08 · Mobile · Mobile &amp; Ubiquitous Computing · group project</div>
+      <h1>An iPhone app that watches how you use your phone</h1>
+      <p class="lede">Our team built an iOS app that connects three signals most people never see together: which apps you spend time in, whether you're moving or sitting still, and how stressed you are. I owned the monitoring pipeline, the part that gets usage data out of iOS despite Apple's privacy walls, and the reports built on it.</p>
+      <div class="tags"><span class="tag">Swift</span><span class="tag">SwiftUI</span><span class="tag">Screen Time API</span><span class="tag">DeviceActivity</span><span class="tag">Core Motion</span><span class="tag">app extensions</span><span class="tag">~7 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">The idea</a></li>
+            <li><a href="#wall">Apple's privacy wall</a></li>
+            <li><a href="#arch">How the pipeline works</a></li>
+            <li><a href="#motion">Movement tracking</a></li>
+            <li><a href="#team">Working as a team</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>What it is:</strong> a SwiftUI iPhone app with four tabs: Home, Activity, a test bench, and Settings. The Activity tab asks for Screen Time permission, lets you pick apps to watch, and shows your usage as a timeline of sessions.</li>
+              <li><strong>The hard part:</strong> iOS does not let an app read screen-time data directly. I built the pipeline around Apple's DeviceActivity framework: a background extension that wakes up on usage events and passes them to the app through a shared container.</li>
+              <li><strong>Also:</strong> a Core Motion tracker that logs when the phone's owner is walking, running, driving or still, a 15-minute test mode with a live countdown and report, and a demo-data mode so the UI could be developed and shown without a provisioned device.</li>
+              <li><strong>Team:</strong> three of us. I wrote the monitoring and report code and the setup guides the others used to get the extensions building on their Macs.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>The idea</h2>
+          <p>Screen Time tells you that you spent three hours on your phone. It doesn't tell you whether those were three hours on the couch or three hours walking between meetings, or how you felt at the end of them. The course was about ubiquitous computing: using the sensors people already carry to understand their behavior. Our app put phone usage, physical activity and a stress estimate side by side so the connections become visible.</p>
+
+          <div class="phone-row" aria-hidden="true">
+            <div class="phone">
+              <div class="ttl">Activity</div>
+              <div class="row"><span>Status</span><span class="pill">Monitoring</span></div>
+              <div class="row"><span>Sessions</span><span>7</span></div>
+              <div class="row"><span>Instagram</span><span>12m 40s</span></div>
+              <div class="row"><span>Safari</span><span>6m 05s</span></div>
+              <div class="row"><span>Messages</span><span>3m 18s</span></div>
+              <div class="btn">Refresh data</div>
+            </div>
+            <div class="phone">
+              <div class="ttl">Movement</div>
+              <div class="row"><span>Now</span><span>walking</span></div>
+              <div class="row"><span>10:14</span><span>stationary → walking</span></div>
+              <div class="row"><span>10:02</span><span>automotive → stationary</span></div>
+              <div class="row"><span>09:31</span><span>walking → automotive</span></div>
+              <div class="bar"><i style="width:62%"></i></div>
+              <span class="pill">Core Motion</span>
+            </div>
+            <div class="phone">
+              <div class="ttl">Report</div>
+              <div class="row"><span>Window</span><span>15 min</span></div>
+              <div class="row"><span>Time left</span><span>04:12</span></div>
+              <div class="row"><span>Entries</span><span>23</span></div>
+              <div class="row"><span>Longest session</span><span>Instagram</span></div>
+              <div class="row"><span>System events</span><span>4</span></div>
+              <div class="btn">View report</div>
+            </div>
+          </div>
+          <p class="hint">Sketches of the three screens I built, with example values. The real app shows the user's own apps and times.</p>
+        </section>
+
+        <section id="wall">
+          <div class="part-label">The constraint</div>
+          <h2>Apple's privacy wall</h2>
+          <p>This project had one problem that shaped everything else. Apple treats screen-time data as among the most sensitive on the device. An app can show the user a Screen Time chart, but the chart is drawn by a separate, sandboxed extension that the app itself cannot read from. The numbers never cross into your code.</p>
+          <p>What Apple <em>does</em> allow is event-based monitoring. An app can ask for permission under the Family Controls framework, let the user pick apps with a system picker (your code receives opaque tokens, not app names), and schedule a monitor. iOS then wakes a small extension of your app when things happen: a monitoring window starts or ends, or usage of the chosen apps crosses a threshold you set. That is the door I built the pipeline through.</p>
+          <div class="callout">
+            <h5>What this meant in practice</h5>
+            <p>Nothing worked in the simulator; every test needed a real iPhone with Screen Time on, a developer account, three entitlements, and an App Group shared by the app and its extension. Half of the engineering effort was configuration, which is why I ended up writing three setup guides for the team.</p>
+          </div>
+        </section>
+
+        <section id="arch">
+          <div class="part-label">Architecture</div>
+          <h2>How the pipeline works</h2>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 260" role="img" aria-label="The main app requests authorization, picks apps and schedules monitoring. iOS wakes the DeviceActivity extension on events; the extension writes to a shared App Group store that the main app reads to build sessions and reports.">
+              <rect class="d-box vm" x="16" y="30" width="250" height="200" rx="10"></rect>
+              <text class="d-text strong" x="141" y="52" text-anchor="middle">Main app (SwiftUI)</text>
+              <rect class="d-box mine" x="30" y="64" width="222" height="26" rx="5"></rect><text class="d-text mono" x="141" y="81" text-anchor="middle">MonitoringManager</text>
+              <text class="d-text small" x="30" y="108">1. request Family Controls permission</text>
+              <text class="d-text small" x="30" y="124">2. user picks apps (system picker)</text>
+              <text class="d-text small" x="30" y="140">3. schedule a DeviceActivity window</text>
+              <text class="d-text small" x="30" y="156">   with usage-threshold events</text>
+              <rect class="d-box mine" x="30" y="170" width="222" height="26" rx="5"></rect><text class="d-text mono" x="141" y="187" text-anchor="middle">Report views</text>
+              <text class="d-text small" x="30" y="216">6. read store → sessions → report</text>
+
+              <rect class="d-box" x="300" y="100" width="130" height="60" rx="8"></rect>
+              <text class="d-text strong" x="365" y="124" text-anchor="middle">App Group</text>
+              <text class="d-text small" x="365" y="140" text-anchor="middle">shared UserDefaults</text>
+              <text class="d-text small" x="365" y="152" text-anchor="middle">(JSON event log)</text>
+
+              <rect class="d-box vm" x="464" y="30" width="240" height="200" rx="10"></rect>
+              <text class="d-text strong" x="584" y="52" text-anchor="middle">Monitor extension</text>
+              <text class="d-text small" x="584" y="68" text-anchor="middle">runs in the background, no UI</text>
+              <rect class="d-box mine" x="478" y="80" width="212" height="26" rx="5"></rect><text class="d-text mono" x="584" y="97" text-anchor="middle">DeviceActivityMonitor</text>
+              <text class="d-text small" x="478" y="124">4. iOS calls it when:</text>
+              <text class="d-text mono small" x="490" y="140">intervalDidStart / intervalDidEnd</text>
+              <text class="d-text mono small" x="490" y="154">eventDidReachThreshold</text>
+              <text class="d-text small" x="478" y="178">5. stamps the event, opens or closes</text>
+              <text class="d-text small" x="478" y="194">   a usage session, writes it to the</text>
+              <text class="d-text small" x="478" y="210">   shared store</text>
+
+              <line class="d-line accent" x1="266" y1="150" x2="298" y2="150" marker-end="url(#arrA)"></line>
+              <line class="d-line" x1="298" y1="120" x2="266" y2="120" marker-end="url(#arr)"></line>
+              <text class="d-text small" x="282" y="112" text-anchor="middle">read</text>
+              <line class="d-line" x1="462" y1="130" x2="432" y2="130" marker-end="url(#arr)"></line>
+              <text class="d-text small" x="447" y="122" text-anchor="middle">write</text>
+              <path class="d-line accent" d="M141,230 L141,248 L584,248 L584,232" marker-end="url(#arrA)"></path>
+              <text class="d-text small" x="362" y="244" text-anchor="middle">schedule + selected apps (via the App Group)</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 1.</b> Two processes that never talk directly. The app sets things up and reads results; the extension is woken by iOS and writes. The App Group container is the only thing they share.</figcaption>
+          </figure>
+
+          <div class="steps">
+            <div class="step">
+              <h4>Ask for permission</h4>
+              <p>The app requests Family Controls authorization through <code>AuthorizationCenter</code>. Until the user approves in the system sheet, every other control stays disabled and the screen explains why.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Authorization is asynchronous, so the manager is an <code>ObservableObject</code> whose published state drives the UI, and the request runs with Swift's <code>async/await</code>. The status is re-checked on every launch because the user can revoke it in Settings at any time.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Pick what to watch</h4>
+              <p>A system-provided picker lets the user choose apps and categories. The app receives a <code>FamilyActivitySelection</code>, which is a set of opaque tokens: it can pass them to the monitor, but it cannot see which apps they are.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>The selection has to reach the extension, which runs as a separate process. I serialize it into the App Group's shared <code>UserDefaults</code> so the extension can load it when iOS wakes it up. The App Group identifier has to match in both targets' entitlements, in the provisioning profiles and in the developer portal, or the write silently falls back to a private store and nothing arrives. That one mismatch cost the team a full day, which is why it got its own setup guide.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Schedule the monitor</h4>
+              <p>A <code>DeviceActivitySchedule</code> defines the window (a repeating daily interval for normal use, a 15-minute one for the test mode) and a <code>DeviceActivityEvent</code> sets a usage threshold on the selected apps. <code>DeviceActivityCenter.startMonitoring</code> hands both to iOS.</p>
+            </div>
+            <div class="step">
+              <h4>The extension wakes up</h4>
+              <p>iOS launches the monitor extension and calls its callbacks: <code>intervalDidStart</code>, <code>intervalDidEnd</code>, <code>eventDidReachThreshold</code>, and their warning variants. Each callback stamps the moment and appends an event record to the shared store. A threshold event closes any open usage session; an interval start opens the day.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>The extension has seconds to run and no UI, so it does the minimum: load the selection, build a small dictionary (type, timestamp, activity name), append it to a JSON array in the shared store, and return. Everything heavier (grouping, totals, charts) happens later in the app. When the shared store isn't reachable, it logs the failure rather than crashing, because a crashing extension gets throttled by the system.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Turn events into sessions</h4>
+              <p>Back in the app, the manager polls the shared store on a timer, reads the event log and folds it into <code>AppUsageSession</code> values: an app, a start time, an end time, a duration. The Activity tab lists them newest first, and the Report screen summarizes them with totals and the system events that happened in between.</p>
+            </div>
+            <div class="step">
+              <h4>Demo mode</h4>
+              <p>Because real data needs a provisioned iPhone, I added a "fake monitor" path that generates realistic sessions through the same code, with every screen clearly labelled FAKE. That let the team design the UI, record demos and present without waiting on entitlements.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="motion">
+          <div class="part-label">Second signal</div>
+          <h2>Movement tracking</h2>
+          <p>Phone usage alone is half the picture, so the app also tracks what the body is doing. Apple's Core Motion framework classifies the phone's movement into stationary, walking, running, cycling and automotive, using the motion coprocessor, so it costs almost no battery.</p>
+          <p>My <code>BackgroundActivityTracker</code> subscribes to those updates, de-duplicates them (Core Motion reports often, but the classification rarely changes) and logs each transition with a timestamp and confidence. In the report, a usage session that overlaps a long "stationary" stretch reads very differently from one that overlaps "walking". One teammate's stress tracker, which used simulated heart-rate data, was the third signal on the same timeline.</p>
+          <details class="deep"><summary>Under the hood</summary>
+            <p><code>CMMotionActivityManager.startActivityUpdates</code> delivers <code>CMMotionActivity</code> objects on a queue. I keep the last classification and only log when it changes or the confidence improves, which turns a stream of hundreds of updates into a readable list of a dozen transitions per hour. Availability is checked first; the simulator and some older devices have no motion coprocessor.</p>
+          </details>
+        </section>
+
+        <section id="team">
+          <div class="part-label">Process</div>
+          <h2>Working as a team</h2>
+          <p>Three people, one Xcode project, and frameworks none of us had used before. A few things that kept it moving:</p>
+          <ul>
+            <li><strong>One folder per person.</strong> Each of us owned a folder under the app target and a test view in a shared "Test" tab, so we could build and try features independently before wiring them into the main screens.</li>
+            <li><strong>Setup guides as documentation.</strong> Getting the extension, the App Group and real data working involved a dozen non-obvious steps across Xcode, the developer portal and the phone. I wrote them down as three markdown guides in the repo, including the exact error messages and what each one meant.</li>
+            <li><strong>Demo data as a contract.</strong> The fake-data generator produced the same model types as the real pipeline, so teammates could build against it without my part being finished.</li>
+          </ul>
+        </section>
+
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Read the platform's rules before designing.</b> A week of trying to read screen-time data directly would have been wasted. Understanding <em>why</em> Apple blocks it pointed straight to the event-based design that worked.</li>
+            <li><b>Processes that share nothing need a contract.</b> The app and its extension communicate only through the App Group store, so the event format became the most important interface in the project.</li>
+            <li><b>Configuration is engineering.</b> Entitlements, bundle IDs, provisioning and App Groups broke the build more often than code did. Writing the guides turned that from a recurring emergency into a checklist.</li>
+            <li><b>Build the fake path first.</b> The demo-data mode unblocked the whole team and doubled as a test harness for the real one.</li>
+          </ol>
+        </section>
+
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>Family Controls</dt><dd>Apple's framework for apps that manage or observe device usage. Needs explicit user approval and a special entitlement.</dd></div>
+            <div><dt>DeviceActivity</dt><dd>The framework that schedules monitoring windows and wakes an extension on usage events.</dd></div>
+            <div><dt>app extension</dt><dd>A small separate process bundled with an app that iOS runs on its own schedule, without a UI.</dd></div>
+            <div><dt>App Group</dt><dd>A shared container that lets an app and its extensions read the same files and defaults.</dd></div>
+            <div><dt>opaque token</dt><dd>What the app gets instead of an app's name when the user picks apps: usable for monitoring, unreadable by code.</dd></div>
+            <div><dt>Core Motion</dt><dd>The framework that reports the phone's movement classification from the motion coprocessor.</dd></div>
+            <div><dt>SwiftUI</dt><dd>Apple's declarative UI framework; views re-render automatically when published state changes.</dd></div>
+            <div><dt>entitlement</dt><dd>A signed capability flag the app must carry to use a restricted framework.</dd></div>
+          </dl>
+          <div class="note" style="margin-top:28px">The app was built for a graduate course and never shipped to the App Store, which is why the stress signal used simulated heart-rate data. The screens above are illustrations drawn for this page.</div>
+        </section>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../mips-multicycle-simulator/index.html">← MIPS simulator</a>
+      <a href="../unity-video-game-design/index.html">Next: Unity game design →</a>
+    </nav>
+  </main>
+  <script src="../../shared/walkthrough.js"></script>
+</body>
+</html>

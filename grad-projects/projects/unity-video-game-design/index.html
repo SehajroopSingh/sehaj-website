@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unity Game Design</title>
+  <meta name="description" content="Four Unity milestones (animation, physics, menus, AI), the enemy AI state machine I built for our team game, and the game itself on video.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a class="active" href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 09 · Games · Video Game Design (CS 4455 / 6457)</div>
+      <h1>Learning Unity one milestone at a time, then shipping a game</h1>
+      <p class="lede">The course was built as a ladder: four individual milestones, each adding one layer of what a game needs (characters that move well, physics that feel right, menus and pickups, enemies that think), then a team project that put all of it into one playable game. Here's what each rung taught me, the enemy AI I built for the team game, and the game itself.</p>
+      <div class="tags"><span class="tag">Unity 2021</span><span class="tag">C#</span><span class="tag">Mecanim</span><span class="tag">PhysX</span><span class="tag">NavMesh</span><span class="tag">team project</span><span class="tag">~8 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#game">The game</a></li>
+            <li class="sub"><a href="#ai">The enemy AI I built</a></li>
+            <li><a href="#ladder">The four milestones</a></li>
+            <li class="sub"><a href="#m1">1 · Character animation</a></li>
+            <li class="sub"><a href="#m2">2 · Physics</a></li>
+            <li class="sub"><a href="#m3">3 · Menus &amp; collectables</a></li>
+            <li class="sub"><a href="#m4">4 · AI</a></li>
+            <li><a href="#skills">Skills, in one place</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="game">
+          <div class="part-label">Team project</div>
+          <h2>The game</h2>
+          <p>For the final project our team designed and built a complete game in Unity: a start menu, a playable level with characters, physics and AI-driven opponents, and an ending. Everything in it traces back to one of the four milestones below.</p>
+          <div class="video">
+            <iframe src="https://www.youtube.com/embed/IkwZTIA8gIs" title="Video Game Design Class - Georgia Tech CS Masters" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>
+          </div>
+          <p class="video-fallback">If the video doesn't load here, <a href="https://www.youtube.com/watch?v=IkwZTIA8gIs">watch it on YouTube</a>.</p>
+          <!-- EDIT ME: the game's premise and your teammates' parts -->
+          <p><strong>Project Void</strong> is a [genre] game: [one line on the premise: who the player is, what they're trying to do]. The team split the work by system; mine was the enemy AI.</p>
+
+          <h3 id="ai">What I built: the enemy AI</h3>
+          <p>Every enemy in the game runs on a finite state machine I wrote from scratch in C#. Each enemy is always in exactly one state, each state owns one behavior, and the transitions between them are the rules that make an enemy feel like it is paying attention. I coded the machine itself, every state and action in it, the senses that feed it, and the hooks that drive the enemy's animation.</p>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 300" role="img" aria-label="Enemy state machine: Patrol, Chase, Attack, Search and Retreat, with the events that move an enemy between them, and a Dead state reachable from anywhere.">
+              <text class="d-text small" x="40" y="40">states own behaviors · arrows are the transition rules · senses are checked every frame</text>
+              <rect class="d-box core" x="560" y="22" width="120" height="44" rx="10"></rect>
+              <text class="d-text strong" x="620" y="41" text-anchor="middle">Dead</text>
+              <text class="d-text small" x="620" y="56" text-anchor="middle">health 0, from any state</text>
+              <rect class="d-box" x="40" y="110" width="120" height="50" rx="10"></rect>
+              <text class="d-text strong" x="100" y="131" text-anchor="middle">Patrol</text>
+              <text class="d-text small" x="100" y="147" text-anchor="middle">walk the waypoints</text>
+              <rect class="d-box mine" x="300" y="110" width="120" height="50" rx="10"></rect>
+              <text class="d-text strong" x="360" y="131" text-anchor="middle">Chase</text>
+              <text class="d-text small" x="360" y="147" text-anchor="middle">run at the player</text>
+              <rect class="d-box mine" x="560" y="110" width="120" height="50" rx="10"></rect>
+              <text class="d-text strong" x="620" y="131" text-anchor="middle">Attack</text>
+              <text class="d-text small" x="620" y="147" text-anchor="middle">strike, then cool down</text>
+              <rect class="d-box" x="300" y="210" width="120" height="50" rx="10"></rect>
+              <text class="d-text strong" x="360" y="231" text-anchor="middle">Search</text>
+              <text class="d-text small" x="360" y="247" text-anchor="middle">check last known spot</text>
+              <rect class="d-box" x="560" y="210" width="120" height="50" rx="10"></rect>
+              <text class="d-text strong" x="620" y="231" text-anchor="middle">Retreat</text>
+              <text class="d-text small" x="620" y="247" text-anchor="middle">fall back, recover</text>
+              <!-- patrol -> chase -->
+              <line class="d-line accent" x1="160" y1="125" x2="298" y2="125" marker-end="url(#arrA)"></line>
+              <text class="d-text small" x="229" y="117" text-anchor="middle">sees or hears player</text>
+              <!-- chase -> attack -->
+              <line class="d-line accent" x1="420" y1="125" x2="558" y2="125" marker-end="url(#arrA)"></line>
+              <text class="d-text small" x="489" y="117" text-anchor="middle">within attack range</text>
+              <!-- attack -> chase -->
+              <path class="d-line" d="M558,150 L420,150" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="489" y="166" text-anchor="middle">player steps out of range</text>
+              <!-- chase -> search -->
+              <line class="d-line" x1="380" y1="160" x2="380" y2="208" marker-end="url(#arr)"></line>
+              <text class="d-text small" x="388" y="188">lost sight for a few seconds</text>
+              <!-- search -> chase (re-acquire) -->
+              <path class="d-line accent" d="M340,210 L340,162" marker-end="url(#arrA)" stroke-dasharray="4 3"></path>
+              <text class="d-text small" x="332" y="188" text-anchor="end">spotted again</text>
+              <!-- search -> patrol -->
+              <path class="d-line" d="M300,235 L100,235 L100,162" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="200" y="228" text-anchor="middle">gave up</text>
+              <!-- attack -> retreat -->
+              <line class="d-line" x1="620" y1="160" x2="620" y2="208" marker-end="url(#arr)"></line>
+              <text class="d-text small" x="628" y="188">health low</text>
+              <!-- retreat -> patrol -->
+              <path class="d-line" d="M620,260 L620,282 L140,282 L140,162" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="380" y="294" text-anchor="middle">recovered → back on patrol</text>
+              <!-- any -> dead -->
+              <line class="d-line" x1="620" y1="110" x2="620" y2="68" marker-end="url(#arr)" stroke-dasharray="3 3"></line>
+              <text class="d-text small" x="612" y="92" text-anchor="end">from here or anywhere</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 1.</b> The enemy state machine. Orange arrows are the "aggressive" transitions driven by the senses; grey ones are the fallbacks that keep enemies from chasing forever or dying stupidly.</figcaption>
+          </figure>
+
+          <div class="steps">
+            <div class="step">
+              <h4>The machine</h4>
+              <p>A <code>MonoBehaviour</code> that holds the current state, calls that state's update every frame, and switches states through one <code>ChangeState</code> method that runs the old state's exit code and the new state's enter code. That one method is where every transition goes, so there is exactly one place to log, debug or add a rule.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Each state is its own class with <code>Enter</code>, <code>Tick</code> and <code>Exit</code>. Enter sets up what the state needs (a destination, an animator flag, a timer); Tick runs the behavior and checks the transition rules in priority order; Exit clears what Enter set up. Keeping the rules inside each state, rather than in one big switch, meant a new behavior was a new file, not a bigger file. The enemy's shared data (its NavMeshAgent, animator, health, the player reference, tuning values) lives on the controller, and states reach it through a reference passed in at construction.</p>
+                <pre class="code"><span class="k">class</span> EnemyController : MonoBehaviour
+    EnemyState current
+    <span class="k">void</span> Update()        { senses.Tick(); current.Tick(); }
+    <span class="k">void</span> ChangeState(next) { current.Exit(); current = next; current.Enter(); }
+
+<span class="k">class</span> ChaseState : EnemyState
+    Enter: agent.speed = runSpeed; anim.SetBool("running", <span class="k">true</span>)
+    Tick:  <span class="k">if</span> (health.low)            → ChangeState(retreat)
+           <span class="k">if</span> (senses.inAttackRange) → ChangeState(attack)
+           <span class="k">if</span> (!senses.canSeePlayer &amp;&amp; lostFor &gt; giveUpTime) → ChangeState(search)
+           agent.SetDestination(player.position)   <span class="c"># re-pathed on a short timer</span></pre>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Senses</h4>
+              <p>Before any state runs, a small perception component works out what the enemy knows: can it see the player, can it hear them, how far away are they. Sight is a distance check, a field-of-view angle check, and a raycast so walls actually block line of sight. Hearing is a radius that grows when the player sprints. The senses also remember the <em>last known position</em>, which is what the Search state goes to look at.</p>
+            </div>
+            <div class="step">
+              <h4>Patrol</h4>
+              <p>The default state. The enemy walks a loop of waypoints on the NavMesh, with a short idle pause at each one so patrols don't look mechanical. This is the M4 waypoint loop grown up: the same arrival check, but with randomized pauses and a walk animation driven from the agent's velocity.</p>
+            </div>
+            <div class="step">
+              <h4>Chase</h4>
+              <p>Run toward the player's current position, re-pathing on a short timer rather than every frame so the NavMesh isn't hammered. The enemy keeps a lost-sight timer: if the player breaks line of sight and stays hidden for a few seconds, Chase gives up and hands over to Search.</p>
+            </div>
+            <div class="step">
+              <h4>Attack</h4>
+              <p>Stop moving, face the player, and trigger the attack animation. The damage is applied by an animation event at the frame the hit lands, not when the state starts, so blocking or stepping back at the right moment works. A cooldown timer stops the enemy from attacking every frame, and if the player moves out of range during the cooldown the enemy drops back to Chase.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Facing the player is a smoothed rotation toward the target each frame (the NavMeshAgent's own rotation is switched off while attacking so it doesn't fight the turn). The attack trigger and the "hit" animation event are the two points where the state machine and Mecanim meet, and both came straight from what M1 taught about animation events.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Search</h4>
+              <p>Go to the last place the player was seen, look around for a moment, then return to Patrol. If the senses pick the player up again at any point, Search jumps straight back to Chase. This state is what makes hiding feel like a real option instead of an exploit.</p>
+            </div>
+            <div class="step">
+              <h4>Retreat</h4>
+              <p>When health drops below a threshold, the enemy disengages: it picks a point away from the player (or back toward its spawn), runs there, and recovers before returning to Patrol. Enemies that back off and come back read as far smarter than enemies that fight to the death every time.</p>
+            </div>
+            <div class="step">
+              <h4>Dead</h4>
+              <p>Reachable from any state. It disables the agent and the senses, plays the death animation, and stops the enemy from ever transitioning again. Handling death as a state rather than a flag meant no other state needed a "but what if we're dead" check.</p>
+            </div>
+          </div>
+
+          <h3>Tuning and debugging</h3>
+          <ul>
+            <li>Every number the behaviors depend on (sight range and angle, hearing radius, attack range and cooldown, give-up time, retreat health threshold, walk and run speeds) is a public field, so each enemy type could be tuned in the Inspector without touching code.</li>
+            <li>Gizmos draw the vision cone, hearing radius and the current state's name above each enemy in the Scene view, which turned "why is it doing that?" into something I could see.</li>
+            <li>Because all transitions go through one method, logging it gave a readable trace of every decision an enemy made during a playtest.</li>
+          </ul>
+
+          <!-- EDIT ME: teammates and what they owned -->
+          <p><strong>Team:</strong> [names and what each person owned: for example, player controller and camera; level design and art; menus, audio and the build].</p>
+        </section>
+
+        <section id="ladder">
+          <div class="part-label">The ladder</div>
+          <h2>The four milestones</h2>
+          <p>Each milestone came as a written brief and a starter Unity project with two human characters and two cartoon "minions". The job was to extend it, build it, and submit a playable executable. The briefs read like a tour of a game engine, and that's what they were.</p>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 120" role="img" aria-label="Timeline: four milestones leading to the team game.">
+              <line class="d-line" x1="40" y1="60" x2="560" y2="60"></line>
+              <g>
+                <circle cx="60" cy="60" r="16" style="fill:var(--accent)"></circle><text class="d-chip-text" x="60" y="64" text-anchor="middle">M1</text>
+                <text class="d-text small" x="60" y="96" text-anchor="middle">animation</text>
+                <circle cx="200" cy="60" r="16" style="fill:var(--accent)"></circle><text class="d-chip-text" x="200" y="64" text-anchor="middle">M2</text>
+                <text class="d-text small" x="200" y="96" text-anchor="middle">physics</text>
+                <circle cx="340" cy="60" r="16" style="fill:var(--accent)"></circle><text class="d-chip-text" x="340" y="64" text-anchor="middle">M3</text>
+                <text class="d-text small" x="340" y="96" text-anchor="middle">menus + pickups</text>
+                <circle cx="480" cy="60" r="16" style="fill:var(--accent)"></circle><text class="d-chip-text" x="480" y="64" text-anchor="middle">M4</text>
+                <text class="d-text small" x="480" y="96" text-anchor="middle">AI</text>
+              </g>
+              <rect class="d-box mine" x="580" y="36" width="124" height="48" rx="8"></rect>
+              <text class="d-text strong" x="642" y="56" text-anchor="middle">Team game</text>
+              <text class="d-text small" x="642" y="72" text-anchor="middle">all four, together</text>
+              <text class="d-text small" x="60" y="30" text-anchor="middle">individual</text>
+              <text class="d-text small" x="480" y="30" text-anchor="middle">individual</text>
+              <text class="d-text small" x="642" y="26" text-anchor="middle">group</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 2.</b> Four individual milestones, then the group project. Each later milestone built on the project from the one before.</figcaption>
+          </figure>
+
+          <div class="timeline">
+            <!-- ---------- M1 ---------- -->
+            <div class="tl-item" id="m1">
+              <div class="tl-mark">M1</div>
+              <div class="tl-card">
+                <h3>Character animation</h3>
+                <p>Making a character move <em>and look right</em> while moving. The whole milestone is about the gap between those two things.</p>
+                <h5>What I built</h5>
+                <ul>
+                  <li>Compared a character driven by code (<em>programmatic motion</em>) with one driven by its animation data (<em>root motion</em>), and saw why the first one's feet slide during turns.</li>
+                  <li>Extended the root-motion character with run animations in a 2D blend tree, so walking blends smoothly into running in any direction.</li>
+                  <li>Added speed scalars to the controller: the animator's playback speed, plus scaling the per-frame root movement and rotation with <code>LerpUnclamped</code>, so the character could be snappier without losing planted feet.</li>
+                  <li>Hand-animated the minion with keyframes and curves: a hop and a twist on top of its forward motion, with matching left/right turn versions.</li>
+                  <li>Added animation events that fire a footstep sound at the right frames, through the project's event system.</li>
+                  <li>Used <code>Animator.MatchTarget</code> to slide the character into position before pressing a button, and inverse kinematics (<code>OnAnimatorIK</code>) so the hand reaches the actual button and the head looks at it.</li>
+                </ul>
+                <h5>Skills</h5>
+                <ul>
+                  <li>Mecanim state machines, transitions, exit times and blend trees.</li>
+                  <li>Root motion vs programmatic control, and the hybrid most real games use.</li>
+                  <li>Keyframe animation, tangent curves, partial keyframes, animation events.</li>
+                  <li>Target matching and IK for interactions with the world.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- ---------- M2 ---------- -->
+            <div class="tl-item" id="m2">
+              <div class="tl-mark">M2</div>
+              <div class="tl-card">
+                <h3>Physics simulation</h3>
+                <p>A scene full of small physics experiments, each demonstrating one feature of Unity's rigidbody engine, all visible from the camera the moment the game starts.</p>
+                <h5>What I built</h5>
+                <ul>
+                  <li>Stacked spheres that topple and ring a sound on collision, by reporting <code>OnCollisionEnter</code> as an event the audio manager listens for.</li>
+                  <li>A second stack on a physics layer that ignores itself, so the spheres fall straight through one another (the collision matrix in action).</li>
+                  <li>A compound collider: a stone fox mask built from several invisible primitive colliders so it tips over and lands on its nose convincingly, without a mesh collider.</li>
+                  <li>A hanging chain of five rigidbodies linked with configurable joints, swinging at start.</li>
+                  <li>A kinematic elevator animated with Mecanim and set to "animate physics", carrying a ball up and dropping it, over and over.</li>
+                  <li>A weeble that can't be knocked over, by moving its center of mass low into a capsule.</li>
+                  <li>Friction and bounce materials: a box that grips a ramp, one that slides down it, and a ball that bounces for a long time.</li>
+                  <li>A ragdoll from the Ragdoll Wizard that flops over a hurdle.</li>
+                  <li>An autonomous "click beetle": a script that applies random impulses and torques in <code>FixedUpdate</code> at random intervals, only while grounded.</li>
+                </ul>
+                <h5>Skills</h5>
+                <ul>
+                  <li>Rigidbodies, colliders, triggers and collision callbacks.</li>
+                  <li>Physics layers, physics materials, joints, kinematic bodies and tunneling fixes.</li>
+                  <li>Applying forces from code and the difference between Update and FixedUpdate.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- ---------- M3 ---------- -->
+            <div class="tl-item" id="m3">
+              <div class="tl-mark">M3</div>
+              <div class="tl-card">
+                <h3>Game menus and collectables</h3>
+                <p>The parts that turn a scene into a game: a front door, a pause screen, things to pick up, and objects that react to you.</p>
+                <h5>What I built</h5>
+                <ul>
+                  <li>A start-menu scene that uses the level itself as a backdrop, blurred and grained with post-processing, with Start and Exit buttons wired to scene loading and quitting.</li>
+                  <li>An in-game pause menu on a canvas group: Escape fades it in, blocks input, and freezes time with <code>Time.timeScale</code>; Restart and Quit buttons reuse the same scripts.</li>
+                  <li>A collectable ball built on a trigger collider. It only responds to the character that carries a <code>BallCollector</code> component, tells that component it was collected, fires a sound event and removes itself.</li>
+                  <li>A prefab that animates when the player gets close and resets when they leave, driven by a Mecanim state machine I built, with three copies placed in the level.</li>
+                </ul>
+                <h5>Skills</h5>
+                <ul>
+                  <li>Unity UI: canvases, panels, anchors, the canvas scaler and why pixel offsets break at other resolutions.</li>
+                  <li>Scene management and the gotchas of pausing (timeScale survives scene loads).</li>
+                  <li>Trigger-based interaction, prefabs, and an event system that decouples what happened from who reacts.</li>
+                  <li>Post-processing volumes and layers.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- ---------- M4 ---------- -->
+            <div class="tl-item" id="m4">
+              <div class="tl-mark">M4</div>
+              <div class="tl-card">
+                <h3>Artificial intelligence</h3>
+                <p>Taking the keyboard away from the minion and giving it a brain: a navigation mesh, a patrol route, and the ability to intercept a moving target.</p>
+                <h5>What I built</h5>
+                <ul>
+                  <li>Stripped the player-control scripts from a minion, added a <code>NavMeshAgent</code>, baked a NavMesh over the level and tuned the agent's size, speed and turn rate to it.</li>
+                  <li>A waypoint loop over five visible markers, advancing when the agent arrives (checking <code>remainingDistance</code> only once no path is pending, so it doesn't skip ahead).</li>
+                  <li>Drove the hop animation from the agent's actual velocity, so the minion steps when it moves and idles when it stops.</li>
+                  <li>A procedural state machine with two states, <em>patrol</em> and <em>intercept</em>, looping forever.</li>
+                  <li>Intercept by prediction: read the moving target's velocity, estimate a lookahead time from the distance, extrapolate where it will be, clamp the lookahead and raycast against the NavMesh so the prediction never leaves walkable ground. A tall marker shows the predicted point every frame.</li>
+                </ul>
+                <h5>Skills</h5>
+                <ul>
+                  <li>NavMesh baking and agents; steering without writing steering.</li>
+                  <li>State machines for behavior, and why they pay off as behaviors multiply.</li>
+                  <li>Position prediction and pursuit, with the safety checks that keep it on the map.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 200" role="img" aria-label="Intercept by prediction: the minion aims at where the moving target will be, not where it is.">
+              <rect x="16" y="16" width="420" height="168" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="5 4"></rect>
+              <text class="d-text small" x="28" y="34">NavMesh (walkable area)</text>
+              <circle cx="80" cy="140" r="12" style="fill:var(--core1)"></circle><text class="d-text small" x="80" y="166" text-anchor="middle">minion</text>
+              <circle cx="250" cy="80" r="9" style="fill:var(--core3)"></circle><text class="d-text small" x="250" y="64" text-anchor="middle">target now</text>
+              <line class="d-line" x1="262" y1="80" x2="330" y2="80" marker-end="url(#arr)"></line>
+              <text class="d-text small" x="296" y="96" text-anchor="middle">velocity</text>
+              <rect x="356" y="52" width="10" height="56" style="fill:var(--accent)"></rect><text class="d-text small" x="361" y="124" text-anchor="middle">predicted</text>
+              <line class="d-line accent" x1="92" y1="134" x2="350" y2="84" marker-end="url(#arrA)" stroke-dasharray="5 4"></line>
+              <text class="d-text small" x="180" y="100" text-anchor="middle">agent destination</text>
+              <text class="d-text small" x="470" y="44">lookahead = distance / max speed</text>
+              <text class="d-text small" x="470" y="62">clamped to a few seconds</text>
+              <text class="d-text small" x="470" y="90">predicted = position + velocity × lookahead</text>
+              <text class="d-text small" x="470" y="118">NavMesh.Raycast(now → predicted):</text>
+              <text class="d-text small" x="470" y="136">hit an edge? shorten the prediction</text>
+              <text class="d-text small" x="470" y="164">"arrived" = close to the real target,</text>
+              <text class="d-text small" x="470" y="182">never to the prediction</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 3.</b> The M4 intercept. Aiming at the prediction is what makes the minion cut the target off instead of chasing its tail.</figcaption>
+          </figure>
+        </section>
+
+        <section id="skills">
+          <div class="part-label">Summary</div>
+          <h2>Skills, in one place</h2>
+          <div class="skills">
+            <span>Mecanim state machines</span><span>blend trees</span><span>root motion</span><span>keyframe animation</span><span>animation events</span><span>inverse kinematics</span><span>rigidbody physics</span><span>colliders &amp; triggers</span><span>joints</span><span>physics materials</span><span>ragdolls</span><span>Unity UI</span><span>scene management</span><span>post-processing</span><span>prefabs</span><span>event systems</span><span>NavMesh &amp; agents</span><span>finite state machines</span><span>enemy AI &amp; perception</span><span>position prediction</span><span>C# in Unity</span><span>building &amp; auditing executables</span><span>team game development</span>
+          </div>
+        </section>
+
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Feel is engineering.</b> Whether a character's feet slide or a jump feels floaty comes down to concrete choices: root motion or not, which blend tree, what friction. Those are tunable, testable decisions, not magic.</li>
+            <li><b>Decouple with events.</b> The starter project's event manager, where a collision raises an event and an audio manager answers it, is the pattern that kept the team project from becoming one giant script.</li>
+            <li><b>Let the engine do the steering.</b> A NavMesh plus a few lines of prediction beat anything I could hand-write for moving a character around a level. The interesting work is in deciding <em>where</em> to go.</li>
+            <li><b>Ship builds early.</b> Every milestone was graded on an executable, not the editor. Things that work in the editor and break in a build (missing scenes, paused time, UI scaling) only show up if you build often.</li>
+          </ol>
+          <div class="note" style="margin-top:28px">The milestone briefs and starter project belong to the course. The descriptions above are my own summary of what each milestone asked for and what I took from it; the video is our team's.</div>
+        </section>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../muc-screen-time-app/index.html">← iOS screen-time app</a>
+      <a href="../bioinformatics-autism-genes/index.html">Next: autism genes →</a>
+    </nav>
+  </main>
+  <script src="../../shared/walkthrough.js"></script>
+</body>
+</html>

@@ -3,8 +3,9 @@
 **Starting point:** this is a copy of the design and code of
 [alessia-website](https://github.com/SehajroopSingh/alessia-website), taken as a template.
 All the page text and photos are still Alessia's — replace them with your own.
-Her personal PDFs (`documents/`) were not copied, so links to them on the CV, Work and
-Thinking pages will be empty until you add your own files. `BRIEF.md` is her content
+Her personal PDFs (`documents/`) were not copied, so links to them on the CV and Work
+pages will be empty until you add your own files. The Thinking page has been replaced by
+`projects.html` (the Projects tab), which links into the `grad-projects/` folder. `BRIEF.md` is her content
 brief; keep the structure ideas or delete it.
 
 Preview locally: `python3 -m http.server 4180`, then open http://localhost:4180.
@@ -24,7 +25,8 @@ text file, you can edit this site.
 | `index.html` | Homepage (hero, central question, The Work — six case-study cards, figures, recent writing, the veil, contact) |
 | `about.html` | About page (essay, "How I work", FAQ) |
 | `work.html` | All case studies, with category filters |
-| `thinking.html` | Writing & research — academic papers and articles, grouped by institution/publication |
+| `projects.html` | Projects — graduate demos and walkthroughs, grouped by course; links into `grad-projects/` |
+| `grad-projects/` | The project pages themselves: five browser demos plus four walkthroughs, with their own stylesheet (see `grad-projects/README.md`) |
 | `journey.html` | Interactive map of cities, with year filters |
 | `cv.html` | Expandable CV + document library |
 | `contact.html` | Contact details + contact form |
@@ -59,18 +61,15 @@ colour and font. For example, change `--accent` to recolour the default accent, 
 
 ### Add the CV PDF (or a thesis)
 1. Put the file in `documents/` (e.g. `documents/alessia-canuto-cv.pdf`).
-2. In `cv.html` (and `thinking.html` for the thesis), find the "PDF — coming soon" card —
+2. In `cv.html`, find the "PDF — coming soon" card —
    a comment above it shows the exact download link to paste in.
 
-### Add a new paper or article to Thinking
-The Thinking page is a "bento" archive in two parts — Academic writing, then Articles &
-opinion writing — grouped by institution or publication. In `thinking.html`, copy one
-whole `<article class="bento-card"> … </article>` block into the right group and edit
-the title, date, summary and link (label it `PDF` for a PDF, `Read article` otherwise).
-Academic cards also hold an `Abstract, question, methodology & findings` section.
-Add `bento-card--wide` to a card's class to make it twice as wide (useful for filling
-a gap at the end of a group). Each group's dark tile shows the institution's name as
-text; a comment inside it shows how to swap in an official logo image.
+### Add a project to Projects
+`projects.html` is a bento archive grouped by course. Copy one whole
+`<article class="bento-card"> … </article>` block into the right group and edit the
+title, metadata line, summary and link. The project pages live in `grad-projects/`;
+each one links back to `projects.html` from its top-left corner. The homepage
+"Things I've built" section shows three picks — edit those cards in `index.html`.
 
 ### Add a new case study to Work
 The Work page is deliberately limited to six case studies — two per Action

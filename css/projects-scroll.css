@@ -1,0 +1,27 @@
+/* Native scrolling: one viewport of travel per scene, without gesture capture. */
+.rj, .sj { height: 700vh; }
+.osb-wrap { height: 500vh; }
+.project-scene-jump {
+  position: absolute; top: 112px; right: 20px; z-index: 5;
+  max-width: calc(100% - 40px); padding: 9px 12px;
+  color: #fff; background: #101827; border: 1px solid #8c97aa;
+  border-radius: 8px; font: 14px var(--sans);
+}
+.project-scene-jump:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.rj-card, .sj-card { transition-duration: .18s; }
+@media (max-width: 760px) {
+  .rj-dots, .sj-dots { display: none; }
+  .project-scene-jump { top: 112px; right: 12px; max-width: calc(100% - 24px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rj-card, .sj-card { transition: none; }
+}
+
+/* The film replaces the whole stage only after entering the ship. */
+.rj-card--film { background: #000; transform: none; z-index: 8; }
+.rj-film-frame { inset: 0; width: 100%; height: 100%; aspect-ratio: auto; transform: none; border-radius: 0; box-shadow: none; }
+.rj-film-badge { display: none; }
+.rj-film-fallback { z-index: 2; bottom: 16px; background: rgba(0,0,0,.7); padding: 6px 12px; }
+.rj-film-active .rj-title, .rj-film-active .rj-dots, .rj-film-active .project-scene-jump, .rj-film-active .rj-hint { visibility: hidden; }
+
+body:has(.rj-film-active) .site-header { visibility: hidden; }

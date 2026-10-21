@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graduate Projects</title>
+  <meta name="description" content="Five robotics problems — localization, tracking, control, SLAM and planning — rebuilt as interactive browser demos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="projects/solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="projects/hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="projects/drone-pid-control/index.html">PID</a>
+        <a href="projects/indiana-drones-slam/index.html">SLAM</a>
+        <a href="projects/warehouse-search/index.html">Search</a>
+        <a href="projects/aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="projects/infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="projects/mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="projects/muc-screen-time-app/index.html">iOS app</a>
+        <a href="projects/unity-video-game-design/index.html">Unity</a>
+        <a href="projects/bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="projects/world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Graduate coursework · Computer Science &amp; Bioinformatics</div>
+      <h1>Robots, kernels, phones and games</h1>
+      <p class="lede">Twelve projects from seven courses. The robotics ones are rebuilt as live demos you can play with in the browser; the rest are walkthroughs that explain what was built and why, with diagrams and real results where I have them.</p>
+      <div class="note">The demos are new JavaScript rebuilds written for this site, and the walkthroughs are my own summaries with diagrams made for the page. Original course solutions stay private under the Georgia Tech honor code.</div>
+    </section>
+
+    <h2 class="section-title">AI for Robotics · CS 7638</h2>
+    <section class="cards">
+      <a class="card" href="projects/solar-system-particle-filter/index.html">
+        <div class="num">01 · Localization</div>
+        <h2>Solar System</h2>
+        <p>Find a lost satellite using nothing but gravity readings, with a particle filter.</p>
+        <div class="tags"><span class="tag">particle filter</span></div>
+      </a>
+      <a class="card" href="projects/hopscotch-kalman-filter/index.html">
+        <div class="num">02 · Tracking</div>
+        <h2>HopScotch</h2>
+        <p>Predict where dozens of drifting asteroids will be, then hop across them to get home.</p>
+        <div class="tags"><span class="tag">Kalman filter</span></div>
+      </a>
+      <a class="card" href="projects/drone-pid-control/index.html">
+        <div class="num">03 · Control</div>
+        <h2>Drone Control</h2>
+        <p>Fly a two-rotor drone with PID controllers and auto-tune the gains with Twiddle.</p>
+        <div class="tags"><span class="tag">PID</span><span class="tag">Twiddle</span></div>
+      </a>
+      <a class="card" href="projects/indiana-drones-slam/index.html">
+        <div class="num">04 · Mapping</div>
+        <h2>Indiana Drones</h2>
+        <p>Map an unknown forest, localize within it and fly to the treasure without crashing.</p>
+        <div class="tags"><span class="tag">Graph SLAM</span></div>
+      </a>
+      <a class="card" href="projects/warehouse-search/index.html">
+        <div class="num">05 · Planning</div>
+        <h2>Warehouse</h2>
+        <p>Deliver boxes with A* search, then plan a policy that survives slippery wheels.</p>
+        <div class="tags"><span class="tag">A*</span><span class="tag">value iteration</span></div>
+      </a>
+    </section>
+
+    <h2 class="section-title">Systems · operating systems and computer architecture</h2>
+    <section class="cards">
+      <a class="card" href="projects/aos-vm-resource-manager/index.html">
+        <div class="num">06 · Systems · walkthrough</div>
+        <h2>vCPU Scheduler + Memory Coordinator</h2>
+        <p>Two C programs that keep eight KVM virtual machines balanced across four cores and fed with memory, explained step by step with real test results.</p>
+        <div class="tags"><span class="tag">libvirt</span><span class="tag">KVM</span><span class="tag">ballooning</span></div>
+      </a>
+      <a class="card" href="projects/infos-kernel-tasks/index.html">
+        <div class="num">07 · Systems · walkthrough</div>
+        <h2>InfOS Kernel Tasks</h2>
+        <p>A priority scheduler, a buddy page allocator and a disk block cache written inside a teaching kernel, with a live allocator to play with.</p>
+        <div class="tags"><span class="tag">C++</span><span class="tag">kernel</span><span class="tag">buddy allocator</span></div>
+      </a>
+      <a class="card" href="projects/mips-multicycle-simulator/index.html">
+        <div class="num">Systems · walkthrough</div>
+        <h2>Multi-cycle MIPS Simulator</h2>
+        <p>A MIPS processor simulated in C: a 13-state control FSM drives the datapath one clock cycle at a time, with a live model to watch.</p>
+        <div class="tags"><span class="tag">C</span><span class="tag">MIPS</span><span class="tag">control FSM</span></div>
+      </a>
+    </section>
+
+    <h2 class="section-title">Mobile &amp; Ubiquitous Computing</h2>
+    <section class="cards">
+      <a class="card" href="projects/muc-screen-time-app/index.html">
+        <div class="num">08 · Mobile · group project</div>
+        <h2>Screen Time Monitor</h2>
+        <p>An iPhone app that tracks app usage and movement through Apple's Screen Time and Core Motion frameworks, built around iOS's privacy rules.</p>
+        <div class="tags"><span class="tag">Swift</span><span class="tag">SwiftUI</span><span class="tag">DeviceActivity</span></div>
+      </a>
+    </section>
+
+    <h2 class="section-title">Video Game Design · CS 4455 / 6457</h2>
+    <section class="cards">
+      <a class="card" href="projects/unity-video-game-design/index.html">
+        <div class="num">09 · Games · walkthrough + video</div>
+        <h2>Unity Game Design</h2>
+        <p>Four milestones (animation, physics, menus, AI) and the team game where I built the enemy AI: a state machine with patrol, chase, attack, search and retreat.</p>
+        <div class="tags"><span class="tag">Unity</span><span class="tag">C#</span><span class="tag">enemy AI</span></div>
+      </a>
+    </section>
+    <h2 class="section-title">Bioinformatics</h2>
+    <section class="cards">
+      <a class="card" href="projects/bioinformatics-autism-genes/index.html">
+        <div class="num">10 · Bioinformatics · walkthrough</div>
+        <h2>Autism Genes: Database to Network</h2>
+        <p>The SFARI autism gene list taken through PubMed, Gene Ontology and a STRING protein network, which splits into a synapse cluster and a chromatin cluster.</p>
+        <div class="tags"><span class="tag">Python</span><span class="tag">Biopython</span><span class="tag">STRING</span><span class="tag">networkx</span></div>
+      </a>
+    </section>
+  </main>
+</body>
+</html>

@@ -799,25 +799,29 @@ section { padding-block: var(--section-pad); }
 }
 
 /* ==========================================================================
-   HERO STAGE — the name sits BEHIND Alessia, in front of the background.
-   Three layers: a textured violet field (painted right here in CSS — no
-   image file), the giant name, and a cutout of her (images/hero-cutout.png,
+   HERO STAGE — the name sits BEHIND Sehaj, in front of the background.
+   Three layers: a textured deep-blue field (painted right here in CSS — no
+   image file), the giant name, and a cutout of him (images/hero-cutout.png,
    transparent background) rendered on top.
-   To change the backdrop colour, edit background-color below.
+   The colours are sampled from the original portrait: navy edges, a cyan
+   glow behind the shoulders. To change the backdrop, edit the values below.
    ========================================================================== */
 .hero-stage {
   position: relative;
   height: min(calc(100vh - 66px), 1060px);
   min-height: 560px;
   overflow: hidden;
-  /* Dusty violet, with grain + soft watercolour blotches layered on top */
-  background-color: #8E81BB;
+  /* Deep navy, with grain + the portrait's cyan glow layered on top */
+  background-color: #0B2F5C;
   background-image:
     url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/></filter><rect width='260' height='260' filter='url(%23g)'/></svg>"),
-    radial-gradient(56% 44% at 16% 20%, rgba(255, 255, 255, 0.12), transparent 68%),
-    radial-gradient(60% 52% at 84% 10%, rgba(255, 255, 255, 0.08), transparent 70%),
-    radial-gradient(48% 42% at 74% 80%, rgba(28, 10, 66, 0.16), transparent 72%),
-    radial-gradient(40% 36% at 6% 84%, rgba(28, 10, 66, 0.12), transparent 70%);
+    /* the cyan halo that sits behind the shoulders in the portrait */
+    radial-gradient(34% 40% at 61% 68%, rgba(43, 233, 247, 0.55), rgba(43, 233, 247, 0.18) 45%, transparent 72%),
+    radial-gradient(52% 58% at 61% 60%, rgba(1, 80, 130, 0.9), transparent 75%),
+    /* dark vignette toward the corners, as in the photo */
+    radial-gradient(48% 42% at 8% 14%, rgba(0, 20, 55, 0.55), transparent 72%),
+    radial-gradient(48% 42% at 94% 10%, rgba(0, 20, 55, 0.45), transparent 72%),
+    radial-gradient(40% 36% at 6% 84%, rgba(0, 20, 55, 0.5), transparent 70%);
   padding-block: 0;   /* cancel the default <section> padding */
   display: flex;
   justify-content: flex-end;   /* the cutout's right edge rides the fold */
@@ -828,7 +832,7 @@ section { padding-block: var(--section-pad); }
 /* Magazine-gutter shading: the left page eases into a dark crease, a
    thin highlight catches where the second page curves back up, then a
    soft shadow settles over the sliver. Shading only for now — the
-   sliver itself stays the violet field. */
+   sliver itself stays the navy field. */
 .hero-stage::before {
   content: "";
   position: absolute;
@@ -838,23 +842,23 @@ section { padding-block: var(--section-pad); }
   background: linear-gradient(
     90deg,
     transparent calc(100% - var(--page2) - clamp(120px, 14vw, 220px)),
-    rgba(24, 10, 60, 0.10) calc(100% - var(--page2) - clamp(40px, 5vw, 80px)),
-    rgba(24, 10, 60, 0.34) calc(100% - var(--page2) - 6px),
-    rgba(16, 6, 44, 0.55) calc(100% - var(--page2)),
+    rgba(2, 14, 40, 0.10) calc(100% - var(--page2) - clamp(40px, 5vw, 80px)),
+    rgba(2, 14, 40, 0.34) calc(100% - var(--page2) - 6px),
+    rgba(0, 10, 30, 0.55) calc(100% - var(--page2)),
     rgba(255, 255, 255, 0.16) calc(100% - var(--page2) + 3px),
     rgba(255, 255, 255, 0.05) calc(100% - var(--page2) + 14px),
-    rgba(24, 10, 60, 0.16) calc(100% - var(--page2) + 46px),
-    rgba(24, 10, 60, 0.10) 100%
+    rgba(2, 14, 40, 0.16) calc(100% - var(--page2) + 46px),
+    rgba(2, 14, 40, 0.10) 100%
   );
 }
-/* Deep violet scrim over the lower edge so the overlaid text reads */
+/* Deep navy scrim over the lower edge so the overlaid text reads */
 .hero-stage::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent 46%, rgba(44, 22, 96, 0.32) 72%, rgba(32, 14, 76, 0.62) 100%);
+  background: linear-gradient(180deg, transparent 46%, rgba(4, 24, 60, 0.32) 72%, rgba(2, 16, 46, 0.62) 100%);
 }
 /* The statement, tagline and buttons sit ON the photo, above the scrim —
    a low two-column band hugging the bottom edge so the photo stays clear
@@ -883,7 +887,7 @@ section { padding-block: var(--section-pad); }
 .stage-core {
   position: relative;
   height: 100%;
-  aspect-ratio: 1200 / 1450;   /* wider than the photo: zoomed in, bottom cropped */
+  aspect-ratio: 1200 / 1450;   /* same ratio as hero-cutout.png: the cutout's bottom edge meets the fold */
   max-width: calc(100% - var(--page2));   /* never spill past the fold */
   margin-right: var(--page2);   /* right edge sits exactly on the crease */
   flex: 0 0 auto;
@@ -913,7 +917,7 @@ section { padding-block: var(--section-pad); }
   line-height: 0.92;
   font-size: clamp(4rem, 14.5vw, 13rem);
   letter-spacing: 0.01em;
-  color: #F5EBDC;   /* warm cream — the giant name on the violet field */
+  color: #F5EBDC;   /* warm cream — the giant name on the navy field */
   text-align: center;
 }
 /* Staggered lines: "Alessia" leans right, "Canuto" leans left.
@@ -939,15 +943,15 @@ section { padding-block: var(--section-pad); }
 .hero-stage .orbit-badge { left: auto; right: calc(var(--page2) / 2); transform: translateX(50%); bottom: clamp(13rem, 30vh, 16rem); z-index: 6; }
 /* slightly slimmer buttons so the pair fits beside the fold */
 .hero-stage .btn { padding: 1rem 1.5rem; }
-/* Light-on-violet versions of the bottom band's text and buttons */
+/* Light-on-navy versions of the bottom band's text and buttons */
 .hero-stage .label--ink { color: rgba(255, 255, 255, 0.78); }
 .hero-stage .hero-statement { color: rgba(255, 255, 255, 0.94); }
 .hero-stage .hero-tagline { color: #fff; }
 .hero-stage .hero-tagline em { color: #F5EBDC; }
 .hero-stage .hero-tagline .u-draw { background-image: linear-gradient(to right, #F5EBDC, #F5EBDC); }
 .hero-stage .btn { border-color: rgba(255, 255, 255, 0.9); color: #fff; }
-.hero-stage .btn:hover { background: #fff; color: var(--accent); }
-.hero-stage .btn--solid { background: #fff; border-color: #fff; color: var(--accent); }
+.hero-stage .btn:hover { background: #fff; color: #0B2F5C; }
+.hero-stage .btn--solid { background: #fff; border-color: #fff; color: #0B2F5C; }
 .hero-stage .btn--solid:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
 @media (prefers-reduced-motion: no-preference) {
   .js .hero-stage .stage-fg { animation: stage-in 1.7s cubic-bezier(0.22, 0.65, 0.2, 1) both; }
@@ -2413,11 +2417,13 @@ a.bento-link::after { content: " \2192"; }
 
   .hero-grid .hero-visual { order: -1; max-width: 420px; }
   .orbit-badge { width: 100px; height: 100px; left: -10px; bottom: 18px; }
-  .hero-stage::after { background: linear-gradient(180deg, transparent 26%, rgba(44, 22, 96, 0.38) 54%, rgba(32, 14, 76, 0.72) 100%); }
+  .hero-stage::after { background: linear-gradient(180deg, transparent 26%, rgba(4, 24, 60, 0.38) 54%, rgba(2, 16, 46, 0.72) 100%); }
   /* the magazine fold needs room — skip it on small screens */
   .hero-stage::before { display: none; }
-  .hero-stage { justify-content: center; }
-  .stage-core { max-width: 100%; margin-right: 0; }
+  .hero-stage { justify-content: center; align-items: flex-end; }
+  /* Taller than the stage and anchored to its bottom edge, so the face
+     rises clear of the text band; the extra height is clipped off the top. */
+  .stage-core { max-width: 100%; margin-right: 0; height: 122%; }
   .hero-stage .stage-name { right: 0; }
   .stage-content .stage-content-inner { padding-right: 0; }
   .hero-stage .orbit-badge { right: clamp(1rem, 4vw, 3.5rem); transform: none; }
@@ -2923,4 +2929,153 @@ a.bento-link::after { content: " \2192"; }
   .scene-on .scene-viewport { position: static !important; height: auto !important; overflow: visible !important; }
   .scene-on [data-scene-item] { opacity: 1 !important; transform: none !important; }
   .scenes-armed [data-zoom] { transform: none !important; border-radius: 0 !important; }
+}
+
+/* ==========================================================================
+   LOOP BAND — the six-step loop drawn as a ring (homepage, "How I work").
+   Styled after developers.google.com: white field, a big geometric sans
+   heading in near-black, grey body copy, tiny monospace eyebrows with a
+   small coloured square, 1px borders, soft radii, and the four Google
+   colours used only as accents (the cards follow the logo's order:
+   blue, red, yellow, blue, green, red).
+   Copy on the left, ring on the right; on small screens the ring becomes
+   a numbered list. Card positions are --x/--y on each .loop-slot in
+   index.html; each arrow is its own SVG layer right after its card, so
+   the scroll scene reveals card, arrow, card, arrow… in document order.
+   The ring is a size container: card widths and type are in cqw, so the
+   whole diagram scales together and the arrows always meet the cards.
+   ========================================================================== */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.loop-band {
+  --g-ink: #1F1F1F;
+  --g-text: #5E5E5E;
+  --g-line: #DADCE0;
+  --g-blue: #4285F4;  --g-red: #EA4335;  --g-yellow: #FBBC04;  --g-green: #34A853;
+  --g-link: #0B57D0;
+  --g-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  background: #fff;
+  color: var(--g-ink);
+}
+.loop-band .diagram-content {
+  width: min(100% - 3rem, 1240px);
+  text-align: left;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(760px, calc(100vh - 150px));
+  gap: clamp(1.5rem, 3vw, 3.5rem);
+  align-items: center;
+}
+/* give the pinned scene more room: a slimmer header gap than the other scenes */
+.scene-on.scene--loop .scene-viewport { padding-block: 68px 8px; }
+
+/* Google-style eyebrow: small mono caps with a coloured square in front */
+.g-eyebrow {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: var(--g-mono);
+  font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--g-text);
+}
+.g-dot { display: inline-block; width: 0.42em; height: 0.42em; background: currentColor; flex: none; }
+.g-dot--blue { color: var(--g-blue); }  .g-dot--red { color: var(--g-red); }
+.g-dot--yellow { color: var(--g-yellow); }  .g-dot--green { color: var(--g-green); }
+
+.loop-copy .diagram-title {
+  font-family: var(--sans);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  text-align: left;
+  font-size: clamp(2rem, 3.4vw, 3.3rem);
+  color: var(--g-ink);
+  margin: 0.9rem 0 1.1rem;
+  max-width: 11em;
+}
+.loop-copy p { color: var(--g-text); max-width: 36ch; font-size: 1rem; line-height: 1.6; margin: 0; }
+.loop-copy .loop-evidence { margin-top: 1.75rem; font-size: 0.86rem; line-height: 1.5; letter-spacing: 0; text-transform: none; color: var(--g-text); }
+.loop-copy .loop-evidence span { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.45rem; }
+.loop-copy .loop-evidence span:first-child { display: inline-flex; margin: 0 0 0.25rem; }
+.loop-copy .loop-evidence a { color: var(--g-link); text-decoration: none; font-weight: 500; }
+.loop-copy .loop-evidence a:hover { text-decoration: underline; }
+
+/* The ring: a square that fills its grid column, and a size container */
+.loop { position: relative; width: 100%; aspect-ratio: 1; container-type: size; }
+.loop-defs { position: absolute; }
+.loop-arc { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; z-index: 1; }
+.loop-arc path { fill: none; stroke: var(--g-ink); stroke-width: 2.6; stroke-linecap: round; }
+.loop-arc.loop-return path { stroke: var(--g-blue); stroke-dasharray: 0.3 2.6; stroke-width: 3.4; }   /* dotted: "and again" (pathLength=100 units) */
+.loop-arrowhead { fill: var(--g-ink); }
+.loop-arc.loop-return .loop-arrowhead { fill: var(--g-blue); }
+.loop-center {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0.6cqw;
+  color: var(--g-text);
+  font-family: var(--g-mono);
+  font-size: 1.6cqw; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.loop-center-glyph { font-size: 6cqw; line-height: 1; color: var(--g-blue); }
+/* Each slot is centred on a point of the ring; the step card carries the
+   eyebrow, the name and the one-line caption together */
+.loop-slot {
+  position: absolute;
+  left: var(--x); top: var(--y);
+  width: 30cqw;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+.loop .g-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.4cqw;
+  text-align: left;
+  background: #fff;
+  color: var(--g-ink);
+  border: 1px solid var(--g-line);
+  border-radius: 2.2cqw;
+  padding: 1.8cqw 2cqw 1.9cqw;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.loop .loop-num {
+  display: inline-flex; align-items: center; gap: 0.9cqw;
+  font-family: var(--g-mono);
+  font-size: 1.55cqw; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--g-text);
+}
+.loop .loop-num .g-dot { width: 1.1cqw; height: 1.1cqw; }
+.loop .g-card--blue .loop-num .g-dot { color: var(--g-blue); }
+.loop .g-card--red .loop-num .g-dot { color: var(--g-red); }
+.loop .g-card--yellow .loop-num .g-dot { color: var(--g-yellow); }
+.loop .g-card--green .loop-num .g-dot { color: var(--g-green); }
+.loop .loop-name { font-family: var(--sans); font-size: 2.15cqw; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin-top: 0.5cqw; color: var(--g-ink); }
+.loop .loop-cap { font-size: 1.85cqw; line-height: 1.4; color: var(--g-text); margin-top: 0.4cqw; }
+
+/* Scene: cards rise in with Material's standard easing; each arrow then
+   draws itself from its card to the next (the dotted return arrow fades) */
+.scene-on.scene--loop .loop-step[data-scene-item] {
+  transform: translateY(2.4cqw) scale(0.97);
+  transition: opacity 0.4s cubic-bezier(0.2, 0, 0, 1), transform 0.55s cubic-bezier(0.2, 0, 0, 1);
+}
+.scene-on.scene--loop .loop-step[data-scene-item].is-on { opacity: 1; transform: none; }
+.scene-on.scene--loop .loop-arc[data-scene-item] { opacity: 0; transform: none; transition: opacity 0.2s ease; }
+.scene-on.scene--loop .loop-arc[data-scene-item] path {
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.2, 0, 0, 1);
+}
+.scene-on.scene--loop .loop-arc[data-scene-item].is-on { opacity: 1; }
+.scene-on.scene--loop .loop-arc[data-scene-item].is-on path { stroke-dashoffset: 0; }
+.scene-on.scene--loop .loop-arc.loop-return[data-scene-item] { transition: opacity 0.6s ease 0.15s; }
+.scene-on.scene--loop .loop-arc.loop-return[data-scene-item] path { stroke-dasharray: 0.3 2.6; stroke-dashoffset: 0; transition: none; }
+
+/* Small screens: copy on top, the ring becomes a numbered list */
+@media (max-width: 900px) {
+  .loop-band .diagram-content { grid-template-columns: 1fr; gap: 1.5rem; }
+  .loop { container-type: normal; aspect-ratio: auto; height: auto; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.8rem; }
+  .loop-defs, .loop-arc, .loop-center { display: none; }
+  .loop-slot { position: static; width: auto; margin: 0; transform: none; }
+  .loop-arc + .loop-slot::before { content: "\2193"; display: block; color: var(--g-text); font-size: 1.1rem; margin: -0.3rem 0 0.3rem 1.1rem; }
+  .loop-slot:last-of-type::after { content: "\21BB  and again"; display: block; color: var(--g-link); font-family: var(--g-mono); font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; margin: 0.9rem 0 0 1.1rem; }
+  .loop .g-card { gap: 0.2rem; border-radius: 1rem; padding: 0.9rem 1.05rem 1rem; }
+  .loop .loop-num { font-size: 0.72rem; gap: 0.5rem; }
+  .loop .loop-num .g-dot { width: 0.45em; height: 0.45em; }
+  .loop .loop-name { font-size: 1.02rem; margin-top: 0.2rem; }
+  .loop .loop-cap { font-size: 0.9rem; max-width: 44ch; margin-top: 0.15rem; }
 }

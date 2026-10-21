@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>World DataSet: Education Predictors</title>
+  <meta name="description" content="A data-science project that curated two world-indicator datasets from eight public sources and asked what predicts how many years of school a country's children get.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a class="active" href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 11 · Data Science · group project · 2022</div>
+      <h1>World DataSet: what predicts a country's education?</h1>
+      <p class="lede">Public data about the world is scattered across dozens of portals, each with its own country names, years and formats. My team spent over a hundred hours merging eight of them into two clean, documented datasets, then used them to ask one question: of all the things we can measure about a country, which ones go with its children staying in school longer?</p>
+      <div class="tags"><span class="tag">Python</span><span class="tag">pandas</span><span class="tag">Altair</span><span class="tag">scikit-learn</span><span class="tag">PCA</span><span class="tag">linear regression</span><span class="tag">open data</span><span class="tag">~8 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#setup">Two datasets, eight sources</a></li>
+            <li><a href="#curate">Part 1 · Curating the data</a></li>
+            <li><a href="#explore">Part 2 · Exploring education</a></li>
+            <li><a href="#model">Part 3 · PCA and regression</a></li>
+            <li><a href="#findings">What it adds up to</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Built:</strong> two curated datasets. A 20-year panel (198 countries × 1990–2020, 239 indicators: health, deaths by cause, refugees, displacement, disasters, World Bank development indicators) and a recent cross-section (71 countries, 27 variables: educational mobility, gender equality, political stability, income, temperature).</li>
+              <li><strong>Asked:</strong> what predicts the mean years of schooling of a country's children?</li>
+              <li><strong>Found:</strong> parents' schooling dominates (r = 0.86). Political stability, income and education spending all help. Hotter countries school their children less (r = −0.58), which is almost certainly geography standing in for wealth, not heat itself.</li>
+              <li><strong>Modelled:</strong> a linear regression on eight variables explains 83% of the variance; each extra year of parental schooling is worth about 0.67 years for the child. PCA compresses the nine variables to three axes that carry 85% of the variation.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="setup">
+          <div class="part-label">Background</div>
+          <h2>Two datasets, eight sources</h2>
+          <p>This was a group project for a data-science course in autumn 2022<!-- EDIT ME: add course / university and teammates here if you want -->. The deliverable was not a model but a <em>dataset</em>: something other people could download and analyse without repeating the cleaning. We published it on GitHub with a README documenting every column, every source and every join, and then wrote our own analysis on top of it as a worked example.</p>
+          <p>The problem with world data is that every organisation publishes its own slice. The World Bank has development indicators by country and year. Our World in Data has causes of death. The UNHCR counts refugees; the IDMC counts people displaced inside their own country by conflict and by disasters. None of them agree on country names, which years exist, or how wide the table should be. Joining them is the work.</p>
+
+          <div class="stats">
+            <div class="stat"><div class="v">8</div><div class="l">source datasets merged</div></div>
+            <div class="stat"><div class="v">198 × 31</div><div class="l">countries × years in the 20-year panel</div></div>
+            <div class="stat"><div class="v">239</div><div class="l">columns after dropping sparse indicators</div></div>
+          </div>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 300" role="img" aria-label="Eight source datasets flow into two curated datasets. Health, cause-of-death, refugee, displacement, disaster and World Bank data merge on country code and year into the 20-year panel. GDIM mobility, gender equality, governance, IQ-and-income and regional codes merge on country into the recent dataset. Both feed the analysis.">
+              <text class="d-text strong" x="16" y="22">Sources</text>
+              <rect class="d-box vm" x="16" y="34" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="51" text-anchor="middle">WHO child mortality</text>
+              <rect class="d-box vm" x="16" y="66" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="83" text-anchor="middle">health spend % GDP</text>
+              <rect class="d-box vm" x="16" y="98" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="115" text-anchor="middle">deaths by cause (OWID)</text>
+              <rect class="d-box vm" x="16" y="130" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="147" text-anchor="middle">refugees (World Bank)</text>
+              <rect class="d-box vm" x="16" y="162" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="179" text-anchor="middle">displacement (IDMC) ×2</text>
+              <rect class="d-box vm" x="16" y="194" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="211" text-anchor="middle">natural disasters</text>
+              <rect class="d-box vm" x="16" y="226" width="150" height="26" rx="5"></rect><text class="d-text mono" x="91" y="243" text-anchor="middle">World Bank WDI</text>
+
+              <rect class="d-box vm" x="190" y="34" width="150" height="26" rx="5"></rect><text class="d-text mono" x="265" y="51" text-anchor="middle">GDIM mobility</text>
+              <rect class="d-box vm" x="190" y="66" width="150" height="26" rx="5"></rect><text class="d-text mono" x="265" y="83" text-anchor="middle">Global Gender Gap</text>
+              <rect class="d-box vm" x="190" y="98" width="150" height="26" rx="5"></rect><text class="d-text mono" x="265" y="115" text-anchor="middle">WGI stability</text>
+              <rect class="d-box vm" x="190" y="130" width="150" height="26" rx="5"></rect><text class="d-text mono" x="265" y="147" text-anchor="middle">IQ · income · temp</text>
+              <rect class="d-box vm" x="190" y="162" width="150" height="26" rx="5"></rect><text class="d-text mono" x="265" y="179" text-anchor="middle">ISO region codes</text>
+
+              <path class="d-line" d="M166,143 L200,143" style="display:none"></path>
+              <path class="d-line" d="M166,143 L180,143 L180,270 L440,270 L440,245" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="196" y="266">join on (country code, year) · outer</text>
+              <path class="d-line" d="M340,108 L360,108 L360,112 L440,112 L440,90" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="364" y="126">join on country · group by sub-region</text>
+
+              <rect class="d-box mine" x="400" y="40" width="300" height="50" rx="8"></rect>
+              <text class="d-text strong" x="550" y="60" text-anchor="middle">RecentData.csv</text>
+              <text class="d-text small" x="550" y="78" text-anchor="middle">71 countries · 27 variables · one snapshot</text>
+              <rect class="d-box mine" x="400" y="195" width="300" height="50" rx="8"></rect>
+              <text class="d-text strong" x="550" y="215" text-anchor="middle">WDIDCombinedFinal.csv</text>
+              <text class="d-text small" x="550" y="233" text-anchor="middle">198 countries · 1990–2020 · 239 columns</text>
+
+              <path class="d-line accent" d="M550,90 L550,130" marker-end="url(#arrA)"></path>
+              <path class="d-line accent" d="M550,195 L550,170" marker-end="url(#arrA)"></path>
+              <rect class="d-box core" x="440" y="134" width="220" height="32" rx="6"></rect>
+              <text class="d-text mono" x="550" y="154" text-anchor="middle">analysis · README · GitHub</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 1.</b> Twelve raw files into two tidy ones. The left column became the 20-year panel; the middle column became the recent snapshot that the education analysis uses.</figcaption>
+          </figure>
+        </section>
+
+        <!-- ---------- PART 1 ---------- -->
+        <section id="curate">
+          <div class="part-label">Part 1</div>
+          <h2>Curating the data</h2>
+          <p>The 20-year panel was the heavy lift. Its backbone is the World Bank's World Development Indicators, which arrives as one long table: a row per country per indicator with a column per year. Everything else is a wide table with a row per country-year. Getting them to meet took a reshape, a lot of outer joins and a rule for throwing columns away.</p>
+
+          <div class="steps">
+            <div class="step">
+              <h4>Pick one key and stick to it</h4>
+              <p>Every table was coerced to the same three columns: <code>Country</code>, <code>Code</code> (ISO-3) and <code>Year</code>. Country names differ between sources ("Viet Nam", "Vietnam"), so the ISO code carried the joins and the name came along for display.</p>
+            </div>
+            <div class="step">
+              <h4>Merge the country-year tables</h4>
+              <p>Child mortality joined health spending, then refugees, then causes of death, then the disaster columns we kept (economic damage as a share of GDP, death and injury rates, people affected per 100,000). All <strong>outer</strong> joins, so a country missing from one source isn't dropped from the rest.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <pre class="code">health = child_mortality.merge(health_spend, on=[<span class="n">"Year"</span>, <span class="n">"Code"</span>, <span class="n">"Country"</span>], how=<span class="n">"outer"</span>)
+health = health.merge(refugees, on=[<span class="n">"Year"</span>, <span class="n">"Code"</span>, <span class="n">"Country"</span>], how=<span class="n">"outer"</span>)
+health = health.merge(causes_of_death, on=[<span class="n">"Year"</span>, <span class="n">"Code"</span>, <span class="n">"Country"</span>], how=<span class="n">"outer"</span>)
+health = health.merge(disasters[keep_cols], on=[<span class="n">"Year"</span>, <span class="n">"Country"</span>], how=<span class="n">"outer"</span>)
+health = health[~health.Year.isin(years_before_1990)]   <span class="c"># some sources go back to 1900</span></pre>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Pivot the World Bank table</h4>
+              <p>WDI has one row per (country, indicator) and 60 year-columns. I pivoted it so years became rows and indicators became columns, then stacked the country code back in. That turns a 1,400-indicator catalogue into a wide country-year table that joins like the others.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <pre class="code">wdi = wdi.pivot(index=[<span class="n">"Year"</span>], columns=[<span class="n">"Country Code"</span>, <span class="n">"Indicator Name"</span>], values=[<span class="n">"Value"</span>])
+wdi = wdi.stack(level=[<span class="n">"Country Code"</span>]).reset_index()
+
+missing = wdi.isnull().sum() / len(wdi)
+wdi = wdi.drop(missing[missing &gt; 0.18].index, axis=1)     <span class="c"># keep indicators ≥82% populated</span></pre>
+                <p>The 18% threshold is the single most consequential line in the project. Loosen it and you keep hundreds of indicators that are empty for most of the world; tighten it and you lose the interesting ones. We picked the value that kept the panel usable for a regression without imputation.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Join, filter, publish</h4>
+              <p>One last outer join of the health block onto the pivoted WDI on <code>(Year, Code)</code>, drop rows with no country code (regional aggregates like "World" and "Sub-Saharan Africa"), and write three files: the panel, a per-country-and-year grouping for trend reading, and a summary-statistics table for every column.</p>
+            </div>
+            <div class="step">
+              <h4>Build the recent snapshot</h4>
+              <p>The second dataset is narrower and newer. Its spine is the World Bank's Global Database on Intergenerational Mobility: for each country, the mean years of schooling of parents and of their children, for sons, daughters and all, against mothers, fathers and both. We joined on the Global Gender Gap sub-indices, the Worldwide Governance Indicators' political-stability estimate, a country-level IQ / income / education-spending table and daily maximum temperature, then attached ISO sub-regions so results could be grouped geographically.</p>
+            </div>
+          </div>
+
+          <div class="callout why">
+            <h5>Why publish the dataset, not just the analysis</h5>
+            <p>Most course projects end at a notebook nobody can rerun. Shipping the merged CSVs with a column-by-column README means the next person starts from the clean table, and it forced us to be explicit about every choice: which join, which threshold, which years were cut. The README is longer than the analysis.</p>
+          </div>
+        </section>
+
+        <!-- ---------- PART 2 ---------- -->
+        <section id="explore">
+          <div class="part-label">Part 2</div>
+          <h2>Exploring education</h2>
+          <p>With the recent snapshot in hand, the analysis question was: what goes with children getting more schooling? The outcome variable is <code>MEANc</code>, the mean years of schooling of the child generation, taken for all children against the average of both parents, one row per country.</p>
+
+          <figure class="diagram">
+            <div class="chart" id="chart-income"></div>
+            <figcaption><b>Figure 2.</b> Schooling by World Bank income group. The gap between low- and high-income countries is nearly nine years, which is the difference between leaving after a couple of years of primary school and finishing secondary.</figcaption>
+          </figure>
+
+          <figure class="diagram">
+            <div class="chart" id="chart-corr"></div>
+            <figcaption><b>Figure 3.</b> Correlation of each variable with children's schooling. Parents' schooling is in a league of its own. One variable points the other way: temperature.</figcaption>
+          </figure>
+
+          <h3>The temperature puzzle</h3>
+          <p>The surprise in the correlation matrix was daily maximum temperature: hotter countries school their children less, at r = −0.58. Plotting it by income group explains most of it.</p>
+          <figure class="diagram">
+            <div class="chart" id="chart-scatter"></div>
+            <figcaption><b>Figure 4.</b> Each dot is a country; the dashed line is the least-squares fit. Nearly every high-income country sits in the cool half, and nearly every low-income one in the hot half. Hover a dot for its name.</figcaption>
+          </figure>
+          <p>Temperature is standing in for geography, and geography is tangled up with colonial history, disease burden and income. The data can't separate those, and the project report said so: the correlation is real, the causal story is not something a cross-section of 68 countries can tell you. It became the main example in our write-up of why "correlated with" and "caused by" are different sentences.</p>
+          <details class="deep"><summary>A note on the IQ column</summary>
+            <p>One source table carried a "national average IQ" figure alongside income and education spending. It was in the dataset, so it was in the correlation matrix (r = 0.69 with schooling). Country-level IQ estimates are contested in the research literature, and in this data they move almost in lockstep with schooling itself, so they add little beyond what parents' education already says. If I rebuilt the dataset today I would leave that column out.</p>
+          </details>
+        </section>
+
+        <!-- ---------- PART 3 ---------- -->
+        <section id="model">
+          <div class="part-label">Part 3</div>
+          <h2>PCA and regression</h2>
+          <p>Nine correlated variables is too many to reason about one at a time, so I did two things: compressed them with principal component analysis to see how many independent "axes" the countries really vary along, and fitted a linear regression to put numbers on each variable's contribution.</p>
+
+          <div class="steps">
+            <div class="step">
+              <h4>Standardise, then PCA</h4>
+              <p>Income is in dollars (variance 2 × 10⁸), schooling in years (variance ~15). Without centring and scaling, PCA would just find "income". After standardising each column, <code>sklearn.decomposition.PCA</code> on the nine variables gave the variance shares in Figure 5.</p>
+            </div>
+            <div class="step">
+              <h4>Read the loadings</h4>
+              <p><strong>PC1</strong> (66%) is a general "development" axis: every variable loads the same direction except temperature, which loads opposite. <strong>PC2</strong> (10%) separates income and education spending from the rest, picking out rich countries whose schooling is lower than their money predicts. <strong>PC3</strong> (8%) is parents' and children's schooling together, against gender equality.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Loadings are the weights of each original variable in a component. I plotted them as a line per component with a zero line, which makes the sign pattern obvious at a glance: PC1 is all-one-sign-except-temperature. Projecting the countries onto PC pairs and flagging the far tail (sum of two scores above a cutoff) surfaced the outliers worth a second look, in particular the handful of countries far out on the PC1-plus-PC3 axis.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Fit the regression</h4>
+              <p>Ordinary least squares of children's schooling on eight predictors (parents' schooling, gender equality index, economic-participation equality, political stability, IQ, income, education spending, temperature), with an intercept column added by hand.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <pre class="code">X = add_dummy_feature(df[predictors], value=<span class="n">1</span>)   <span class="c"># intercept column</span>
+mlr = LinearRegression(fit_intercept=<span class="k">False</span>).fit(X, df.MEANc)
+r2_score(df.MEANc, mlr.predict(X))                   <span class="c"># → 0.826</span></pre>
+                <p>I fitted the same model six times, once per parent–child pairing (sons on fathers, daughters on mothers and so on). R² sat between 0.80 and 0.83 every time, which says the relationship is stable rather than an artefact of one subset.</p>
+              </details>
+            </div>
+          </div>
+
+          <figure class="diagram">
+            <div class="chart" id="chart-pca"></div>
+            <figcaption><b>Figure 5.</b> Variance explained per principal component. Three components carry 85% of the variation in nine variables; the countries in this dataset differ along far fewer dimensions than the column count suggests.</figcaption>
+          </figure>
+
+          <h3>Results</h3>
+          <div class="stats">
+            <div class="stat"><div class="v">0.83</div><div class="l">R² of the eight-variable regression</div></div>
+            <div class="stat"><div class="v">+0.67 yr</div><div class="l">child schooling per extra year of parental schooling (SE 0.03)</div></div>
+            <div class="stat"><div class="v">85%</div><div class="l">variance held by the first three principal components</div></div>
+          </div>
+          <p>Parental schooling is the coefficient that matters: 0.67 with a standard error of 0.03, so a child in a country where parents averaged ten years of school is predicted to get about 6.7 more years than one where parents averaged zero, holding everything else fixed. Political stability and the gender index were both clearly non-zero. Education spending per inhabitant was the one predictor whose coefficient sat within a standard error of zero once income was in the model: spending and income are too correlated for the regression to tell them apart.</p>
+        </section>
+
+        <!-- ---------- FINDINGS ---------- -->
+        <section id="findings">
+          <div class="part-label">Discussion</div>
+          <h2>What it adds up to</h2>
+          <ul>
+            <li><strong>Education is inherited.</strong> Across 68 countries the single best predictor of how long children stay in school is how long their parents did. Everything else is second order.</li>
+            <li><strong>Stability and money help, spending alone doesn't show.</strong> Political stability and income each carry weight; education expenditure per head adds nothing the model can separate from income.</li>
+            <li><strong>The world varies along about three axes.</strong> Nine development indicators collapse to a general development axis, an income-versus-schooling axis and a schooling-versus-gender-equality axis.</li>
+            <li><strong>From the 20-year panel:</strong> 73% of countries increased per-capita CO₂ emissions between 1970 and 2016, but only 59% did between 2006 and 2016, with several of the biggest emitters trending down.</li>
+          </ul>
+          <div class="callout">
+            <h5>If I did it again</h5>
+            <p>Drop the IQ column, add a year dimension to the recent dataset so the regression could use country fixed effects instead of a single cross-section, and replace the 18% missingness cutoff with a documented per-indicator decision. And write the README first, not last.</p>
+          </div>
+        </section>
+
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Cleaning is the project.</b> The analysis took an afternoon; the dataset took a hundred hours. Every interesting result rested on a join decision made weeks earlier.</li>
+            <li><b>Outer joins, then look at the holes.</b> Inner joins silently shrink the world to the countries every source agrees on. Outer joins keep everyone and make the missingness visible, which is where the real decisions are.</li>
+            <li><b>Scale before PCA, always.</b> The first unscaled run returned a single component that was just "income in dollars". Standardising turned it into something interpretable.</li>
+            <li><b>Say what the data can't say.</b> The temperature correlation was the most tempting finding and the least causal. Writing the limitation into the README felt like a weakness and turned out to be the most useful paragraph in it.</li>
+          </ol>
+        </section>
+
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>WDI</dt><dd>World Development Indicators, the World Bank's catalogue of ~1,400 country-year statistics.</dd></div>
+            <div><dt>GDIM</dt><dd>Global Database on Intergenerational Mobility: parents' and children's schooling from surveys in 150+ economies, 2008–2016.</dd></div>
+            <div><dt>panel data</dt><dd>The same units (countries) observed at many times (years). Lets you compare a country with itself.</dd></div>
+            <div><dt>outer join</dt><dd>A merge that keeps rows from both tables even when the other has no match, filling the gap with NaN.</dd></div>
+            <div><dt>pivot / stack</dt><dd>Reshaping a table between long (one value per row) and wide (one column per variable) forms.</dd></div>
+            <div><dt>PCA</dt><dd>Principal component analysis: rotates correlated variables into uncorrelated axes ordered by how much variance each carries.</dd></div>
+            <div><dt>loading</dt><dd>The weight of an original variable in a principal component; its sign and size say what the component means.</dd></div>
+            <div><dt>R²</dt><dd>Share of the outcome's variance a regression explains. 0.83 here.</dd></div>
+            <div><dt>standard error</dt><dd>Uncertainty of a coefficient. A coefficient within one SE of zero can't be distinguished from no effect.</dd></div>
+          </dl>
+          <div class="note" style="margin-top:28px">The datasets, README and curation script are public on <a href="https://github.com/SehajroopSingh/WorldDataSet">GitHub</a>. The charts on this page were redrawn from the published RecentData.csv and the README's results.</div>
+        </section>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../bioinformatics-autism-genes/index.html">← Autism genes</a>
+      <a href="../../../projects.html">All projects →</a>
+    </nav>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="charts.js"></script>
+  <script src="../../shared/walkthrough.js"></script>
+</body>
+</html>

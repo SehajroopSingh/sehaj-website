@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drone Control · PID</title>
+  <meta name="description" content="Interactive PID drone controller with live gain sliders and Twiddle auto-tuning.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a class="active" href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 03 · Control</div>
+      <h1>Drone Control: PID + Twiddle</h1>
+      <p class="lede">A two-rotor drone has to climb to a target altitude and slide over to a target position quickly, without overshooting or wobbling. PID controllers do the flying, and Twiddle finds the gains automatically.</p>
+      <div class="tags"><span class="tag">PID control</span><span class="tag">Twiddle</span><span class="tag">parameter optimization</span></div>
+    </section>
+
+    <section class="project">
+      <div class="demo-card">
+        <div class="screen"><canvas id="pid-canvas"></canvas></div>
+        <div class="controls">
+          <div class="group">
+            <button id="pid-tune" class="primary">Auto-tune thrust (Twiddle)</button>
+            <button id="pid-reset">Restart flight</button>
+          </div>
+          <label><input id="pid-downdraft" type="checkbox"> Downdraft (needs the I term)</label>
+          <span id="pid-status" class="val"></span>
+          <div class="slider-grid">
+            <h4>Thrust (altitude)</h4><h4>Roll (sideways)</h4>
+            <label>P <input id="t-p" type="range" min="0" max="8" step="0.05" value="1.5"><span class="val" data-for="t-p"></span></label>
+            <label>P <input id="r-p" type="range" min="0" max="0.4" step="0.005" value="0.12"><span class="val" data-for="r-p"></span></label>
+            <label>I <input id="t-i" type="range" min="0" max="2" step="0.01" value="0"><span class="val" data-for="t-i"></span></label>
+            <label>I <input id="r-i" type="range" min="0" max="0.05" step="0.001" value="0"><span class="val" data-for="r-i"></span></label>
+            <label>D <input id="t-d" type="range" min="0" max="6" step="0.05" value="0.3"><span class="val" data-for="t-d"></span></label>
+            <label>D <input id="r-d" type="range" min="0" max="0.5" step="0.005" value="0.18"><span class="val" data-for="r-d"></span></label>
+          </div>
+        </div>
+        <p class="hint">The starting thrust gains bounce on purpose. Click the screen to move the target, then hit Auto-tune to watch Twiddle fix them.</p>
+      </div>
+
+      <!-- ===== WRITE-UP: edit freely ===== -->
+      <article class="writeup">
+        <h2>The problem</h2>
+        <p>The drone's two rotors give it thrust (up and down) and roll (tilting to move sideways). The test cases asked it to reach target elevations and horizontal positions while staying under a maximum velocity and a maximum number of oscillations. Some cases added a constant disturbance that only an integral term can cancel. Instead of hand-picking gains, the solution had to search for them.</p>
+
+        <h2>My approach</h2>
+        <ul>
+          <li><strong>PID controllers:</strong> separate controllers for thrust and roll. Each uses the cross-track error, the change in error since the last step (D), and the running sum of error (I).</li>
+          <li><strong>Softer descent:</strong> I scaled negative thrust corrections down (×0.3), so the drone eases down instead of dropping and bouncing.</li>
+          <li><strong>Twiddle with a custom cost:</strong> the error I minimized was hover error plus penalties for exceeding the velocity limit and the oscillation limit. That steered the search toward gains that are fast and also pass the constraints.</li>
+          <li><strong>Three searches:</strong> thrust only, thrust with an integral term for the disturbance case, and a joint six-gain search over thrust and roll. Each used its own step sizes, growing a step 1.1–1.3× after an improvement and shrinking it 0.7–0.9× otherwise.</li>
+        </ul>
+
+        <h3>What to try</h3>
+        <p>Turn on the downdraft. With I = 0 the drone settles below the target and stays there (steady-state error). Raise I, or run Auto-tune with the downdraft on, and the gap closes.</p>
+
+        <h3>About this demo</h3>
+        <p>This is a from-scratch JavaScript rebuild written for this page, with simplified physics. My original Python solution stays private under the course honor code.</p>
+      </article>
+    </section>
+
+    <nav class="pager">
+      <a href="../hopscotch-kalman-filter/index.html">← Kalman filter</a>
+      <a href="../indiana-drones-slam/index.html">Next: SLAM →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/common.js"></script>
+  <script src="drone-sim.js"></script>
+  <script src="twiddle.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>

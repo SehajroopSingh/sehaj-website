@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InfOS Kernel Tasks</title>
+  <meta name="description" content="Three pieces of an operating system kernel: a priority scheduler, a buddy page allocator and a disk block cache, explained with diagrams and a live allocator.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a class="active" href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 07 · Systems · Operating Systems · InfOS kernel</div>
+      <h1>Three pieces of an operating system, written inside one</h1>
+      <p class="lede">InfOS is a small research kernel built for teaching: it boots in an emulator, and the parts a student would normally only read about are left as holes to fill. I filled three of them in C++: the scheduler that decides which thread runs, the allocator that hands out physical memory, and the cache that sits between the filesystem and the disk.</p>
+      <div class="tags"><span class="tag">C++</span><span class="tag">kernel</span><span class="tag">scheduling</span><span class="tag">buddy allocator</span><span class="tag">block cache</span><span class="tag">~8 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#setup">What InfOS is</a></li>
+            <li><a href="#sched">Task 1 · Priority scheduler</a></li>
+            <li><a href="#buddy">Task 2 · Buddy allocator</a></li>
+            <li class="sub"><a href="#buddy-try">Try it</a></li>
+            <li><a href="#cache">Task 3 · Block cache</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Scheduler:</strong> four run queues, one per priority level. The CPU always goes to the highest non-empty queue, and threads inside a queue take turns.</li>
+              <li><strong>Buddy allocator:</strong> physical memory is handed out in power-of-two page blocks. Big free blocks split in half on demand; freed halves merge back with their "buddy" so memory doesn't fragment.</li>
+              <li><strong>Block cache:</strong> a 64-slot cache in front of the disk driver. Repeated reads of the same 512-byte block are served from memory, and every access is logged as a hit or a miss.</li>
+              <li><strong>Why it's hard:</strong> all three run inside the kernel. There is no debugger to lean on, a wrong pointer freezes the whole machine, and every data structure has to be written by hand because there is no standard library.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="setup">
+          <div class="part-label">Background</div>
+          <h2>What InfOS is</h2>
+          <p>InfOS is a teaching operating system written in C++. It has everything a real kernel has in miniature: threads and processes, a virtual memory system, a filesystem, device drivers, and a tiny shell. It runs under QEMU, a machine emulator, so you can boot it, break it and reboot it in seconds.</p>
+          <p>Each task hands you an interface and an empty implementation. The scheduler, for example, must be a class that answers one question whenever the kernel asks: <em>which thread should run next?</em> Everything else, from timers to context switching, already exists. The work is in getting the policy right, and in writing it without any of the conveniences of user-space code.</p>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 250" role="img" aria-label="InfOS layers: user programs on top, the kernel in the middle with the scheduler, page allocator and block cache highlighted, and emulated hardware at the bottom.">
+              <rect class="d-box vm" x="16" y="14" width="210" height="36" rx="6"></rect><text class="d-text mono" x="121" y="36" text-anchor="middle">shell · user programs</text>
+              <rect class="d-box vm" x="240" y="14" width="210" height="36" rx="6"></rect><text class="d-text mono" x="345" y="36" text-anchor="middle">filesystem calls</text>
+              <rect class="d-box vm" x="464" y="14" width="240" height="36" rx="6"></rect><text class="d-text mono" x="584" y="36" text-anchor="middle">processes &amp; threads</text>
+              <rect x="16" y="66" width="688" height="118" rx="8" fill="none" stroke="var(--line)" stroke-dasharray="5 4"></rect>
+              <text class="d-text small" x="28" y="82">InfOS kernel</text>
+              <rect class="d-box mine" x="28" y="92" width="200" height="40" rx="6"></rect>
+              <text class="d-text strong" x="128" y="109" text-anchor="middle">Task 1 · scheduler</text>
+              <text class="d-text small" x="128" y="124" text-anchor="middle">which thread runs next</text>
+              <rect class="d-box mine" x="252" y="92" width="200" height="40" rx="6"></rect>
+              <text class="d-text strong" x="352" y="109" text-anchor="middle">Task 2 · page allocator</text>
+              <text class="d-text small" x="352" y="124" text-anchor="middle">who gets which physical pages</text>
+              <rect class="d-box mine" x="476" y="92" width="216" height="40" rx="6"></rect>
+              <text class="d-text strong" x="584" y="109" text-anchor="middle">Task 3 · block cache</text>
+              <text class="d-text small" x="584" y="124" text-anchor="middle">between the filesystem and the disk</text>
+              <rect class="d-box" x="28" y="142" width="424" height="30" rx="6"></rect><text class="d-text small" x="240" y="161" text-anchor="middle">timers · context switch · virtual memory · syscalls (already written)</text>
+              <rect class="d-box" x="476" y="142" width="216" height="30" rx="6"></rect><text class="d-text small" x="584" y="161" text-anchor="middle">ATA disk driver (already written)</text>
+              <rect class="d-box core" x="16" y="202" width="688" height="34" rx="6"></rect>
+              <text class="d-text mono" x="360" y="223" text-anchor="middle">QEMU emulated PC · x86 CPU · RAM · virtual disk</text>
+              <line class="d-line" x1="121" y1="50" x2="121" y2="66"></line><line class="d-line" x1="345" y1="50" x2="345" y2="66"></line><line class="d-line" x1="584" y1="50" x2="584" y2="66"></line>
+              <line class="d-line" x1="584" y1="132" x2="584" y2="142"></line>
+              <line class="d-line" x1="360" y1="184" x2="360" y2="202"></line>
+            </svg>
+            </div>
+            <figcaption><b>Figure 1.</b> The three highlighted boxes are the pieces I wrote. Each plugs into an interface the rest of the kernel already calls.</figcaption>
+          </figure>
+        </section>
+
+        <!-- ---------- TASK 1 ---------- -->
+        <section id="sched">
+          <div class="part-label">Task 1</div>
+          <h2>A priority scheduler</h2>
+          <p>Dozens of threads want the CPU: the shell, a program the user launched, background daemons, and the occasional time-critical thread. InfOS tags every thread with one of four priorities, from <em>realtime</em> down to <em>daemon</em>. The scheduler's job is to honor those tags without starving anyone forever.</p>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 210" role="img" aria-label="Four run queues stacked by priority. The picker takes the first thread from the highest non-empty queue and rotates it to the back.">
+              <text class="d-text strong" x="16" y="22">Run queues</text>
+              <text class="d-text small" x="500" y="22">pick_next_entity()</text>
+              <g>
+                <text class="d-text mono" x="16" y="52">realtime</text><rect class="d-box core" x="110" y="36" width="330" height="26" rx="5"></rect>
+                <text class="d-text mono" x="16" y="92">interactive</text><rect class="d-box core" x="110" y="76" width="330" height="26" rx="5"></rect>
+                <rect class="d-chip" x="116" y="80" width="54" height="18" rx="3"></rect><text class="d-chip-text" x="143" y="93" text-anchor="middle">shell</text>
+                <rect class="d-chip" x="176" y="80" width="54" height="18" rx="3"></rect><text class="d-chip-text" x="203" y="93" text-anchor="middle">editor</text>
+                <text class="d-text mono" x="16" y="132">normal</text><rect class="d-box core" x="110" y="116" width="330" height="26" rx="5"></rect>
+                <rect class="d-chip" x="116" y="120" width="54" height="18" rx="3"></rect><text class="d-chip-text" x="143" y="133" text-anchor="middle">prog A</text>
+                <rect class="d-chip" x="176" y="120" width="54" height="18" rx="3"></rect><text class="d-chip-text" x="203" y="133" text-anchor="middle">prog B</text>
+                <rect class="d-chip" x="236" y="120" width="54" height="18" rx="3"></rect><text class="d-chip-text" x="263" y="133" text-anchor="middle">prog C</text>
+                <text class="d-text mono" x="16" y="172">daemon</text><rect class="d-box core" x="110" y="156" width="330" height="26" rx="5"></rect>
+                <rect class="d-chip" x="116" y="160" width="54" height="18" rx="3"></rect><text class="d-chip-text" x="143" y="173" text-anchor="middle">logger</text>
+              </g>
+              <path class="d-line accent" d="M500,40 L470,40 L470,89 L448,89" marker-end="url(#arrA)"></path>
+              <text class="d-text small" x="500" y="44">1. skip empty realtime queue</text>
+              <text class="d-text small" x="500" y="62">2. take the head of interactive: shell</text>
+              <text class="d-text small" x="500" y="80">3. move shell to the back of its queue</text>
+              <text class="d-text small" x="500" y="98">4. run it for one time slice</text>
+              <text class="d-text small" x="500" y="128">normal and daemon wait until</text>
+              <text class="d-text small" x="500" y="144">the queues above them are empty</text>
+              <path class="d-line" d="M143,100 L143,108 L420,108 L420,100" marker-end="url(#arr)"></path>
+              <text class="d-text small" x="282" y="196" text-anchor="middle">round-robin inside a level: head runs, then goes to the tail</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 2.</b> Multilevel queue scheduling. Priority decides <em>which queue</em>; round-robin decides <em>who within the queue</em>.</figcaption>
+          </figure>
+
+          <h3>How it works</h3>
+          <div class="steps">
+            <div class="step">
+              <h4>One queue per priority level</h4>
+              <p>Four linked lists, one for realtime, interactive, normal and daemon threads. When a thread becomes runnable, the kernel calls <code>add_to_runqueue</code> and I append it to the list for its priority; when it blocks or exits, <code>remove_from_runqueue</code> takes it out.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>There is no <code>std::vector</code> or <code>std::list</code> in a kernel. InfOS ships its own minimal <code>List&lt;T&gt;</code>, a singly linked list with <code>append</code>, <code>remove</code>, <code>first</code> and <code>count</code>, and that is what the queues are built from. Priorities arrive as an enum, which I clamp into the range of queues so an unexpected value can never index past the array.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Pick the highest non-empty queue</h4>
+              <p>Every time the kernel needs a decision (a timer tick, a thread blocking, a new thread appearing) it calls <code>pick_next_entity</code>. I check the queues from realtime downward and take the first one that has anything in it. A realtime thread therefore always wins over an interactive one, and so on down.</p>
+            </div>
+            <div class="step">
+              <h4>Rotate within the queue</h4>
+              <p>The chosen thread is moved from the head of its queue to the tail before it runs. Next time that queue is picked, the following thread gets its turn. That's round-robin: every thread at the same priority gets an equal share of the CPU.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Rotation is a remove followed by an append on the same list. Because the scheduler runs with interrupts disabled, no lock is needed around it, but the operation still has to be cheap: this code runs on every single timer tick.</p>
+                <pre class="code">pick_next_entity():
+    <span class="k">for</span> level <span class="k">in</span> [realtime, interactive, normal, daemon]:
+        <span class="k">if</span> queue[level] <span class="k">is not</span> empty:
+            t = queue[level].first()
+            queue[level].remove(t); queue[level].append(t)   <span class="c"># rotate</span>
+            <span class="k">return</span> t
+    <span class="k">return</span> idle_thread</pre>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Keep the lower levels alive</h4>
+              <p>Strict priority has a known flaw: as long as one interactive thread keeps running, normal and daemon threads never get a turn. In an extended version of the scheduler I tracked how many consecutive slices each level had received and, past a limit, let a lower queue run one slice before returning to strict order. That keeps background work moving without letting it slow the foreground down.</p>
+            </div>
+          </div>
+
+          <div class="callout why">
+            <h5>Why this matters</h5>
+            <p>Linux's scheduler is far more sophisticated, but the shape is the same: classes of threads ranked by importance, fairness inside a class, and explicit guards against starvation. Writing the simple version by hand is the fastest way to understand why the complicated versions look the way they do.</p>
+          </div>
+        </section>
+
+        <!-- ---------- TASK 2 ---------- -->
+        <section id="buddy">
+          <div class="part-label">Task 2</div>
+          <h2>A buddy page allocator</h2>
+          <p>The kernel manages physical memory in 4 KB pages. Drivers and the virtual memory system ask for <em>contiguous</em> runs of pages: 1, 2, 4, 8, up to thousands at a time. Handing those out naively leaves memory full of holes too small to use. The buddy system is the classic answer, and it's what Linux uses too.</p>
+          <p>The idea: every free block is a power of two pages long, and every block has exactly one "buddy", the other half of the block it was split from. Need 2 pages but only an 8-page block is free? Split it into two 4s, split one 4 into two 2s, hand one 2 out. Free it later, and if its buddy is also free, they merge back into a 4, which may merge into an 8. Fragmentation heals itself.</p>
+
+          <h3 id="buddy-try">Try it</h3>
+          <p>A 16-page pool. Allocate blocks of different sizes and watch the splits; click any allocated block to free it and watch the merges.</p>
+          <div class="buddy" id="buddy">
+            <div class="buddy-strip"></div>
+            <div class="buddy-pages"><span>page 0</span><span>page 15</span></div>
+            <div class="buddy-ctl">
+              <span>Allocate:</span>
+              <button type="button" data-alloc="0">1 page</button>
+              <button type="button" data-alloc="1">2 pages</button>
+              <button type="button" data-alloc="2">4 pages</button>
+              <button type="button" data-alloc="3">8 pages</button>
+              <button type="button" data-reset>Reset</button>
+            </div>
+            <div class="buddy-lists"></div>
+            <p class="buddy-log"></p>
+          </div>
+          <p class="hint">The rows underneath are the free lists, one per block size ("order"), exactly as the allocator keeps them. Try: allocate 1, 1, 2, then free the two 1-page blocks and watch them climb back up.</p>
+
+          <h3>How it works</h3>
+          <div class="steps">
+            <div class="step">
+              <h4>Free lists by order</h4>
+              <p>An array of linked lists, indexed by order. Order 0 holds free single pages, order 1 holds free pairs, order 2 holds free blocks of four, and so on up to the largest block the kernel allows. Each list is kept sorted by address, which makes buddy lookups and debugging far easier.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>InfOS describes each physical page with a <code>PageDescriptor</code> struct, and the free lists are threaded through those descriptors rather than allocated separately, because the allocator can't call an allocator. A block of order <em>n</em> is represented by the descriptor of its first page. A block is only valid at order <em>n</em> if its page-frame number is a multiple of 2ⁿ, and I check that alignment on every operation and panic loudly if it's wrong; in a kernel, an early panic beats silent corruption.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Allocate: find, split, hand out</h4>
+              <p>For a request of order <em>k</em>, scan upward from order <em>k</em> for the first non-empty list. Take that block. While it is bigger than needed, split it: the lower half stays with us and drops one order, the upper half goes onto the free list one order down. Stop when the block is the requested size.</p>
+            </div>
+            <div class="step">
+              <h4>Free: insert, then coalesce</h4>
+              <p>Put the block back on its order's list. Then look up its buddy. If the buddy is free and the same order, remove both and insert the merged block one order up. Repeat until the buddy is in use or the top order is reached.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Finding a buddy costs one XOR. If a block starts at page-frame number <code>pfn</code> and has order <code>n</code>, its buddy starts at <code>pfn ^ (1 &lt;&lt; n)</code>: flip the single bit that distinguishes the two halves. The merged block always starts at the lower of the two addresses.</p>
+                <pre class="code">free_pages(block, order):
+    insert(block, order)
+    <span class="k">while</span> order &lt; MAX_ORDER:
+        buddy = pfn(block) ^ (1 &lt;&lt; order)
+        <span class="k">if</span> buddy <span class="k">not</span> free at this order: <span class="k">break</span>
+        remove(block, order); remove(buddy, order)
+        block = min(block, buddy); order += 1
+        insert(block, order)</pre>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Boot-time setup and reserved ranges</h4>
+              <p>At boot the allocator is told which page ranges exist and which are already taken (the kernel image, device memory). Inserting a free range means carving it into the largest aligned power-of-two blocks that fit; reserving a range means splitting down until the exact pages can be marked used. Both are the same split logic, applied at startup.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------- TASK 3 ---------- -->
+        <section id="cache">
+          <div class="part-label">Task 3</div>
+          <h2>A block cache for the disk</h2>
+          <p>Every file read ends up as a request for 512-byte blocks from the ATA disk driver, and the emulated disk is slow compared with memory. Filesystems also ask for the same blocks over and over: directory entries, inode tables, the start of a file. A block cache keeps recently used blocks in RAM so most of those requests never reach the disk.</p>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 190" role="img" aria-label="Read path: filesystem asks the cache for a block; on a hit the cache answers from memory, on a miss it reads the disk, stores the block and answers.">
+              <rect class="d-box vm" x="16" y="70" width="140" height="50" rx="8"></rect>
+              <text class="d-text strong" x="86" y="91" text-anchor="middle">Filesystem</text>
+              <text class="d-text small" x="86" y="107" text-anchor="middle">read block #686</text>
+              <rect class="d-box mine" x="230" y="40" width="250" height="110" rx="8"></rect>
+              <text class="d-text strong" x="355" y="62" text-anchor="middle">Block cache · 64 slots × 512 B</text>
+              <g>
+                <rect class="d-box core" x="246" y="76" width="26" height="18" rx="3"></rect><rect class="d-box core" x="276" y="76" width="26" height="18" rx="3"></rect><rect class="d-chip" x="306" y="76" width="26" height="18" rx="3"></rect><rect class="d-box core" x="336" y="76" width="26" height="18" rx="3"></rect><rect class="d-box core" x="366" y="76" width="26" height="18" rx="3"></rect><rect class="d-box core" x="396" y="76" width="26" height="18" rx="3"></rect><rect class="d-box core" x="426" y="76" width="26" height="18" rx="3"></rect>
+                <text class="d-text small" x="462" y="90">…</text>
+                <text class="d-text small" x="246" y="116">slot: block #, data, last-used counter</text>
+                <text class="d-text small" x="246" y="134">hit → copy from slot · miss → fetch, evict oldest, store</text>
+              </g>
+              <rect class="d-box vm" x="560" y="70" width="144" height="50" rx="8"></rect>
+              <text class="d-text strong" x="632" y="91" text-anchor="middle">ATA disk</text>
+              <text class="d-text small" x="632" y="107" text-anchor="middle">slow, sector reads</text>
+              <line class="d-line accent" x1="156" y1="95" x2="228" y2="95" marker-end="url(#arrA)"></line>
+              <line class="d-line" x1="480" y1="95" x2="558" y2="95" marker-end="url(#arr)" stroke-dasharray="4 3"></line>
+              <text class="d-text small" x="519" y="86" text-anchor="middle">only on a miss</text>
+              <text class="d-text mono small" x="16" y="172">debug: cache: [CACHE HIT] offset=686</text>
+              <text class="d-text mono small" x="380" y="172">debug: cache: [CACHE MISS] offset=4096</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 3.</b> The cache intercepts the driver's read path. The log lines at the bottom are the format the grader checks: every block access prints whether it hit or missed.</figcaption>
+          </figure>
+
+          <h3>How it works</h3>
+          <div class="steps">
+            <div class="step">
+              <h4>A fixed table of slots</h4>
+              <p>Sixty-four slots, each holding a block number, a 512-byte buffer and a "last used" stamp. The size is a compile-time constant so the graders could rebuild the kernel with different cache sizes and check that behavior scaled sensibly.</p>
+            </div>
+            <div class="step">
+              <h4>Hook the driver's read</h4>
+              <p>The ATA driver's block-read function was changed to ask the cache first. On a hit, the slot's buffer is copied to the caller and the access counter updated. On a miss, the driver does the real read, the cache stores a copy, and the result is returned. Either way one line is logged: <code>[CACHE HIT]</code> or <code>[CACHE MISS]</code> with the block offset.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Block offsets arrive in bytes, so the block number is <code>offset / 512</code>, and a multi-block request is handled one block at a time so that a partially cached run still gets partial hits. Copies use the kernel's own <code>memcpy</code>; the cache buffers are allocated once at init time, because allocating inside the read path of a disk driver is asking for deadlock.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Evict the least recently used block</h4>
+              <p>When all 64 slots are full and a miss arrives, the slot with the oldest "last used" stamp is overwritten. That's LRU, the policy that best matches how filesystems access disks: whatever was touched most recently is most likely to be touched again.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>With only 64 slots a linear scan for the oldest stamp is cheaper than maintaining a linked LRU list, and far less error-prone in kernel code. I started down the linked-list road (a <code>move_to_front</code> on InfOS's list type) and backed out when the scan turned out to be both simpler and fast enough.</p>
+              </details>
+            </div>
+          </div>
+        </section>
+
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Kernel code has no safety net.</b> A null pointer doesn't throw; it halts the machine. I learned to assert alignment and ownership at every boundary and to let the kernel panic early with a useful message.</li>
+            <li><b>Data structures are yours to write.</b> No STL, no allocator you can call from inside the allocator. Threading free lists through the page descriptors themselves was the first time I really understood intrusive data structures.</li>
+            <li><b>Policy and mechanism are separate.</b> The kernel provided the mechanism (context switches, disk I/O). The tasks were all policy: which thread, which block, which page. That separation is what makes a kernel testable at all.</li>
+            <li><b>Simple beats clever under constraints.</b> The linear LRU scan over 64 slots and the XOR buddy lookup both replaced fancier designs I started with. In the kernel, fewer moving parts is a feature.</li>
+          </ol>
+        </section>
+
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>InfOS</dt><dd>A small C++ teaching kernel that boots under QEMU. Students implement components behind fixed interfaces.</dd></div>
+            <div><dt>run queue</dt><dd>The list of threads that are ready to run. This scheduler keeps one per priority level.</dd></div>
+            <div><dt>round-robin</dt><dd>Taking turns: the thread that just ran goes to the back of the line.</dd></div>
+            <div><dt>page / order</dt><dd>A 4 KB unit of physical memory, and the power-of-two size of a block: order <em>n</em> = 2ⁿ pages.</dd></div>
+            <div><dt>buddy</dt><dd>The other half of the block a block was split from. Found with one XOR on the page number.</dd></div>
+            <div><dt>coalesce</dt><dd>Merging two free buddies into one bigger free block.</dd></div>
+            <div><dt>block cache</dt><dd>RAM copies of recently read disk blocks, so repeated reads skip the disk.</dd></div>
+            <div><dt>LRU</dt><dd>Least recently used: when the cache is full, drop the block that has gone longest without being touched.</dd></div>
+          </dl>
+          <div class="note" style="margin-top:28px">The repository for this work is public on <a href="https://github.com/SehajroopSingh/Operating-Systems-Projects">GitHub</a>, but it holds an in-progress snapshot rather than the final submissions. This page describes the finished design; the visualizer and diagrams were made for the site.</div>
+        </section>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../aos-vm-resource-manager/index.html">← VM scheduler</a>
+      <a href="../mips-multicycle-simulator/index.html">Next: MIPS simulator →</a>
+    </nav>
+  </main>
+
+  <script src="buddy.js"></script>
+  <script src="../../shared/walkthrough.js"></script>
+</body>
+</html>

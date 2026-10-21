@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ALESSIA CANUTO — SITE JAVASCRIPT
+   SEHAJ SINGH — SITE JAVASCRIPT
    --------------------------------------------------------------------------
    Everything interactive on the site lives in this one file:
 
@@ -483,20 +483,16 @@
     // EDIT THE PRE-TYPED MESSAGES HERE.
     // The keys must match the <option value="..."> values in contact.html.
     var starters = {
-      policy:
-        "Hi Alessia,\n\nI'm reaching out because I'd like to discuss a potential opportunity related to policy / public affairs...",
-      esg:
-        "Hi Alessia,\n\nI'm reaching out regarding a potential opportunity related to ESG / sustainability...",
-      ai:
-        "Hi Alessia,\n\nI'm reaching out because I'd like to discuss a potential opportunity related to AI governance / responsible technology...",
-      research:
-        "Hi Alessia,\n\nI'm reaching out to explore a potential research collaboration...",
-      speaking:
-        "Hi Alessia,\n\nI'm reaching out about a potential speaking or event opportunity...",
+      role:
+        "Hi Sehaj,\n\nI'm reaching out about a role on our team that I think could be a fit...",
+      project:
+        "Hi Sehaj,\n\nI'm reaching out about an AI project we're working on...",
+      teaching:
+        "Hi Sehaj,\n\nI'm reaching out about a teaching or speaking opportunity...",
       collaboration:
-        "Hi Alessia,\n\nI'm reaching out because I'd like to explore a potential collaboration...",
+        "Hi Sehaj,\n\nI'm reaching out because I'd like to explore a potential collaboration...",
       other:
-        "Hi Alessia,\n\n"
+        "Hi Sehaj,\n\n"
     };
 
     if (topicSelect && messageBox) {
@@ -534,7 +530,7 @@
       ].filter(Boolean);
 
       window.location.href =
-        "mailto:alessiacanuto@hotmail.com" +
+        "mailto:sehajroop.singh@hotmail.com" +
         "?subject=" + encodeURIComponent(subject) +
         "&body=" + encodeURIComponent(bodyLines.join("\n"));
 

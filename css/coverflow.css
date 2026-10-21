@@ -1,0 +1,263 @@
+/* ============================================================
+   Projects Cover Flow (projects.html)
+   Album-art carousel with mirrored reflections, built by
+   js/coverflow.js. The stage is always dark, like iTunes.
+   ============================================================ */
+
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }   /* headings for screen readers only: they take no space, so the pinned tracks run straight into each other */
+
+.cf-section {
+  background: radial-gradient(120% 80% at 50% 0%, #26262b 0%, #0c0c0e 55%, #050506 100%);
+  color: #f3f3ee;
+  padding: 0 0 clamp(3rem, 6vw, 4.5rem);          /* no intro: the page opens straight on the first project */
+  overflow: clip;              /* not hidden: that would break the sticky robotics stage */
+}
+
+.coverflow { --cf-size: 260px; position: relative; outline: none; }
+.coverflow:focus-visible { box-shadow: 0 0 0 2px rgba(255,255,255,.35); border-radius: 14px; }
+
+.cf-stage {
+  position: relative;
+  height: calc(var(--cf-size) * 1.55);
+  margin-top: calc(var(--cf-size) * 0.08);
+  perspective: 1100px;
+  perspective-origin: 50% 32%;
+  transform-style: preserve-3d;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.cf-stage:active { cursor: grabbing; }
+
+.cf-cover {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: var(--cf-size);
+  margin-left: calc(var(--cf-size) / -2);
+  transform-style: preserve-3d;
+  transition: transform .55s cubic-bezier(.2,.7,.2,1), opacity .4s ease;
+  display: block;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cf-reduced .cf-cover { transition: none; }
+
+.cf-art, .cf-reflect {
+  width: var(--cf-size);
+  height: var(--cf-size);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.cf-art { box-shadow: 0 18px 40px rgba(0,0,0,.55); }
+.cf-art svg, .cf-reflect svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+
+/* The reflection: the same artwork flipped and faded into the floor. */
+.cf-reflect {
+  margin-top: 2px;
+  transform: scaleY(-1);
+  opacity: .32;
+  -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9) 0%, rgba(0,0,0,0) 55%);
+          mask-image: linear-gradient(to top, rgba(0,0,0,.9) 0%, rgba(0,0,0,0) 55%);
+  pointer-events: none;
+}
+
+/* Side covers sit a little darker, the way Cover Flow shaded them. */
+.cf-cover:not(.is-current) .cf-art { filter: brightness(.62); }
+.cf-cover.is-current .cf-art { outline: 1px solid rgba(255,255,255,.12); }
+.cf-cover:focus-visible .cf-art { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* ---------- Caption under the stage ---------- */
+.cf-caption {
+  text-align: center;
+  max-width: 640px;
+  margin: calc(var(--cf-size) * -0.1) auto 0;
+  position: relative;
+  z-index: 200;
+  min-height: 0;
+}
+.cf-kind {
+  font-family: var(--sans);
+  font-size: .72rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #a3a3a3;
+}
+.cf-title {
+  font-family: var(--serif);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 400;
+  margin: .35rem 0 .2rem;
+  color: #fafaf8;
+}
+.cf-tags { font-family: var(--sans); font-size: .9rem; color: #bdb4a4; margin: 0 0 .8rem; }
+.cf-summary { font-family: var(--sans); font-size: 1rem; line-height: 1.6; color: #d6d3cc; margin: 0 auto 1.2rem; max-width: 56ch; }
+.cf-open {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: .95rem;
+  font-weight: 600;
+  color: #151515;
+  background: #fafaf8;
+  border-radius: 999px;
+  padding: .6rem 1.3rem;
+  text-decoration: none;
+  transition: background .2s, transform .2s;
+}
+.cf-open:hover { background: #fff; transform: translateY(-1px); }
+
+/* ---------- Scrubber, like the old iTunes scroll bar ---------- */
+.cf-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 520px;
+  margin: 1.4rem auto 0;
+  padding: 0 16px;
+}
+.cf-controls button {
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.06);
+  color: #fafaf8;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.cf-controls button:hover { background: rgba(255,255,255,.14); }
+.cf-slider { flex: 1; min-width: 0; accent-color: #d6d3cc; }
+.cf-count { flex: none; font-family: var(--sans); font-size: .8rem; color: #a3a3a3; min-width: 3.4em; text-align: right; font-variant-numeric: tabular-nums; }
+.cf-hint { text-align: center; font-family: var(--sans); font-size: .78rem; color: #77736b; margin: .8rem 0 0; }
+
+/* ---------- Sections ---------- */
+/* project picker: pinned at the right while inside the projects */
+.pj-jump { position: fixed; top: 84px; right: 22px; z-index: 40; font-family: var(--sans); opacity: 0; transform: translateY(-6px); pointer-events: none; transition: opacity .3s ease, transform .3s ease; }
+.pj-jump.is-here { opacity: 1; transform: none; pointer-events: auto; }
+.pj-jump-btn { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left; min-width: 230px; max-width: 320px; padding: 9px 12px 9px 14px; border: 1px solid rgba(255,255,255,.18); border-radius: 12px; background: rgba(8,10,16,.78); color: #f3f3ee; cursor: pointer; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.pj-jump-btn:hover, .pj-jump.is-open .pj-jump-btn { border-color: rgba(255,255,255,.4); }
+.pj-jump-now { grid-column: 1; font-size: .64rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.55); }
+.pj-jump-name { grid-column: 1; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pj-jump-chev { grid-column: 2; grid-row: 1 / span 2; width: 9px; height: 9px; border-right: 1.5px solid rgba(255,255,255,.7); border-bottom: 1.5px solid rgba(255,255,255,.7); transform: rotate(45deg) translate(-2px, -2px); transition: transform .2s; }
+.pj-jump.is-open .pj-jump-chev { transform: rotate(225deg) translate(-1px, -1px); }
+.pj-jump-menu { position: absolute; right: 0; top: calc(100% + 8px); width: 300px; max-height: calc(100vh - 140px); overflow: auto; padding: 10px 6px; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; background: rgba(8,10,16,.92); color: #f3f3ee; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 20px 50px rgba(0,0,0,.5); display: grid; gap: 10px; }
+.pj-jump-menu[hidden] { display: none; }
+.pj-nav-group { display: flex; flex-direction: column; }
+.pj-nav-group b { font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.5); padding: 6px 10px 4px; font-weight: 600; }
+.pj-nav-group a { font-size: .88rem; color: inherit; text-decoration: none; padding: 6px 10px; border-radius: 8px; opacity: .85; position: relative; }
+.pj-nav-group a:hover, .pj-nav-group a:focus-visible { background: rgba(255,255,255,.08); opacity: 1; }
+.pj-nav-group a.is-current { opacity: 1; background: rgba(116,192,252,.14); color: #cfe8ff; }
+.pj-nav-group a.is-current::after { content: "● now"; float: right; font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: #74c0fc; margin-top: 3px; }
+@media (max-width: 760px) { .pj-jump { top: auto; bottom: 14px; right: 12px; left: 12px; } .pj-jump-btn { width: 100%; max-width: none; } .pj-jump-menu { top: auto; bottom: calc(100% + 8px); width: 100%; max-height: 60vh; } }
+.cf-group { padding: 1.5rem 0 3.5rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+.cf-group:last-of-type { border-bottom: 0; }
+.cf-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1rem; margin-bottom: .5rem; }
+.cf-mark {
+  font-family: var(--sans); font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: #151515; background: #d6d3cc; border-radius: 999px; padding: .25rem .7rem;
+}
+.cf-head h3 { font-family: var(--serif); font-size: clamp(1.5rem, 3.2vw, 2.2rem); color: #fafaf8; margin: 0; }
+.cf-head p { font-family: var(--sans); font-size: .9rem; color: #a3a3a3; margin: 0; }
+
+/* A section with one project: just the cover, no scrubber. */
+.cf-single .cf-controls, .cf-single .cf-hint { display: none; }
+.cf-single .cf-stage { cursor: default; }
+
+.cf-note { font-family: var(--sans); font-size: .9rem; color: #8f8a80; max-width: 62ch; margin: 2.5rem auto 0; text-align: center; }
+
+/* Without JS the stages are empty, so hide the interactive parts. */
+.coverflow:not(.cf-ready) .cf-stage,
+.coverflow:not(.cf-ready) .cf-caption,
+.coverflow:not(.cf-ready) .cf-controls,
+.coverflow:not(.cf-ready) .cf-hint { display: none; }
+
+/* ---------- Operating Systems: CPU motherboard (js/os-board.js) ---------- */
+.cf-group--board { padding: 0; border-bottom: 0; }   /* the pinned tracks run straight into each other */
+.osb-wrap { position: relative; height: 950vh; margin: 0 calc(50% - 50vw); }   /* 1 screen of board + 3 of phone zoom */
+.os-board {
+  position: sticky; top: 0;
+  height: 100vh;
+  background: #05091a;            /* flat: the canvas paints the board and fades to this same colour before its edges */
+  overflow: hidden;
+}
+.osb-canvas { display: block; width: 100%; height: 100%; }
+
+.osb-label {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  margin: 0; font-family: var(--sans); font-size: .78rem; letter-spacing: .14em; text-transform: uppercase;
+  color: #9fc4ff; opacity: 0; transition: opacity .8s ease 1.4s; white-space: nowrap;
+}
+.osb-label span { color: #4c6ea8; }
+.osb-label .osb-tap { display: none; }
+.osb-label .osb-hover, .osb-label .osb-tap { color: inherit; }
+.os-board.osb-powered .osb-label { opacity: 1; }
+
+/* project nodes */
+.osb-node {
+  position: absolute; transform: translate(-50%, -50%) scale(0);
+  width: 44px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
+  transition: transform .45s cubic-bezier(.3,1.6,.5,1);
+}
+.os-board.osb-nodes-on .osb-node { transform: translate(-50%, -50%) scale(1); }
+.os-board.osb-nodes-on .osb-node[data-node="mips"] { transition-delay: .12s; }
+.os-board.osb-nodes-on .osb-node[data-node="infos"] { transition-delay: .24s; }
+.osb-dot {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, #e9f6ff 0 22%, #4fb6ff 23% 46%, rgba(79,182,255,.15) 47% 100%);
+  box-shadow: 0 0 0 2px rgba(159,225,255,.55), 0 0 24px rgba(79,182,255,.7);
+  animation: osb-breathe 2.4s ease-in-out infinite;
+}
+.osb-node:hover .osb-dot, .osb-node:focus-visible .osb-dot, .osb-node[aria-expanded="true"] .osb-dot {
+  box-shadow: 0 0 0 3px #fff, 0 0 34px rgba(159,225,255,.95);
+}
+.osb-node:focus-visible { outline: none; }
+.osb-name {
+  position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  font-family: var(--serif); font-size: 1.05rem; color: #eaf3ff; white-space: nowrap;
+  text-shadow: 0 0 12px rgba(0,0,0,.8);
+}
+@keyframes osb-breathe { 50% { transform: scale(1.08); } }
+
+/* project panels expand out of their node */
+.osb-panel {
+  position: absolute; z-index: 5; box-sizing: border-box;
+  padding: 18px 20px 20px;
+  background: rgba(6, 12, 32, .9);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 1px solid rgba(120, 190, 255, .35);
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 20px 60px rgba(0,0,0,.6), 0 0 40px rgba(60,150,255,.25);
+  transform: scale(.06); opacity: 0;
+  transition: transform .38s cubic-bezier(.2,.9,.25,1.05), opacity .25s ease;
+}
+.osb-panel.is-open { transform: scale(1); opacity: 1; }
+.osb-panel .cf-kind { color: #8fb3e8; }
+.osb-panel .cf-title { font-size: clamp(1.15rem, 2vw, 1.45rem); margin: .35rem 2rem .4rem 0; text-align: left; }
+.osb-sum { font-family: var(--sans); font-size: .9rem; line-height: 1.55; color: #c9d6ea; margin: 0 0 .8rem; }
+.osb-anim { display: block; width: 100%; height: 240px; border-radius: 10px; background: rgba(0,0,0,.35); }
+.osb-read { font-family: ui-monospace, Menlo, monospace; font-size: .78rem; color: #ffd166; min-height: 1.3em; margin: .6rem 0 .8rem; }
+.osb-panel .cf-open { font-size: .88rem; padding: .5rem 1.1rem; }
+.osb-close {
+  position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.2); background: transparent; color: #dfe9ff; font-size: 1.2rem; line-height: 1; cursor: pointer;
+}
+.osb-close:hover { background: rgba(255,255,255,.1); }
+
+.osb-canvas { transform-origin: 50% 50%; will-change: transform; }
+.osb-label-pz { display: none; }
+.os-board.osb-zooming .osb-label-os { display: none; }
+.os-board.osb-zooming .osb-label-pz { display: inline; }
+.os-board.osb-zooming .osb-node, .os-board.osb-zooming .osb-panel { opacity: 0 !important; pointer-events: none; transition: opacity .3s; }
+.osb-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); margin: 0; font-family: var(--sans); font-size: .76rem; color: rgba(255,255,255,.4); z-index: 3; }
+.osb-label { bottom: auto; top: 84px; }
+@media (max-width: 759px) {
+  .osb-label { top: 70px; white-space: normal; text-align: center; width: 84vw; }
+  .osb-label .osb-hover { display: none; }
+  .osb-label .osb-tap { display: inline; }
+  .osb-anim { height: 210px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .osb-node, .osb-panel, .osb-label { transition: none; }
+  .osb-dot { animation: none; }
+}

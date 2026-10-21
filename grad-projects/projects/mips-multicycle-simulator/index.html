@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Multi-cycle MIPS Simulator</title>
+  <meta name="description" content="A multi-cycle MIPS processor simulated in C: the datapath, the control state machine and how one instruction becomes three to five clock cycles, with a live simulator.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <style>
+    .live { background: var(--screen); border-radius: 12px; padding: 14px; }
+    .live canvas { display: block; width: 100%; height: 250px; }
+    .live .read { font-family: var(--font-mono); font-size: 12px; color: #ffd166; margin: 8px 2px 0; min-height: 1.4em; }
+    .cycles td:first-child { font-family: var(--font-mono); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+      <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+    </defs>
+  </svg>
+
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a class="active" href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Systems · Computer Systems (Inf2C-CS) · 2022</div>
+      <h1>Building a processor in C, one clock cycle at a time</h1>
+      <p class="lede">A simulator for a five-stage, multi-cycle MIPS processor. It reads a program of 32-bit machine words, then plays the hardware: a control state machine sets the datapath's signals every cycle, registers latch on the clock edge, and each instruction walks through fetch, decode, execute, memory and write-back until the program ends.</p>
+      <div class="tags"><span class="tag">C</span><span class="tag">MIPS</span><span class="tag">datapath</span><span class="tag">control FSM</span><span class="tag">CMake</span><span class="tag">autograded</span><span class="tag">~7 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#setup">Single-cycle vs multi-cycle</a></li>
+            <li><a href="#datapath">The datapath</a></li>
+            <li><a href="#fsm">The control state machine</a></li>
+            <li class="sub"><a href="#try">Watch it run</a></li>
+            <li><a href="#build">How I built it</a></li>
+            <li><a href="#trace">One instruction, cycle by cycle</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>What:</strong> a functional model of a MIPS CPU written in C. It runs real MIPS machine code and reports the exact state of the processor after every clock cycle.</li>
+              <li><strong>Instructions:</strong> <code>add</code>, <code>slt</code>, <code>addi</code>, <code>lw</code>, <code>sw</code>, <code>beq</code> and <code>j</code>, plus a special end-of-program word.</li>
+              <li><strong>The heart of it:</strong> a 13-state finite state machine. Each state sets the control signals for one cycle and picks the next state from the instruction's type.</li>
+              <li><strong>Graded by machine:</strong> a GitHub Actions autograder compared every control signal, every internal register and every programmer-visible register, cycle by cycle, against the reference.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="setup">
+          <div class="part-label">Background</div>
+          <h2>Single-cycle vs multi-cycle</h2>
+          <p>The simplest processor does all of an instruction's work in one long clock cycle. That works, but the clock has to be slow enough for the slowest instruction (a load, which reads memory twice), so every <code>add</code> pays for the slowest case.</p>
+          <p>A <strong>multi-cycle</strong> processor breaks each instruction into short steps and gives each step one fast cycle. Simple instructions finish in three or four cycles, loads take five, and the same hardware (one memory, one ALU) is reused across steps instead of duplicated. The price is control: something has to remember which step we're on and drive the right signals. That something is a finite state machine, and building it is most of this project.</p>
+
+          <div class="stats">
+            <div class="stat"><div class="v">3 – 5</div><div class="l">cycles per instruction (jump/branch 3, ALU and stores 4, loads 5)</div></div>
+            <div class="stat"><div class="v">13</div><div class="l">states in the control FSM</div></div>
+            <div class="stat"><div class="v">7</div><div class="l">instructions supported, plus end-of-program</div></div>
+          </div>
+        </section>
+
+        <section id="datapath">
+          <div class="part-label">Part 1</div>
+          <h2>The datapath</h2>
+          <p>The datapath is the plumbing: storage elements and the wires between them. Between steps, intermediate values are parked in internal registers the programmer never sees: <strong>IR</strong> holds the instruction, <strong>A</strong> and <strong>B</strong> hold the two source registers, <strong>ALUOut</strong> holds the ALU's result and <strong>MDR</strong> holds what came back from memory.</p>
+
+          <figure class="diagram">
+            <div class="scroll">
+            <svg viewBox="0 0 720 250" role="img" aria-label="Simplified multi-cycle datapath: PC feeds memory, memory fills IR or MDR, IR selects registers that fill A and B, the ALU writes ALUOut, which feeds back to the PC, memory or the register file.">
+              <rect class="d-box core" x="16" y="96" width="60" height="44" rx="6"></rect><text class="d-text strong" x="46" y="123" text-anchor="middle">PC</text>
+              <rect class="d-box vm" x="110" y="76" width="96" height="84" rx="8"></rect><text class="d-text strong" x="158" y="112" text-anchor="middle">Memory</text><text class="d-text small" x="158" y="130" text-anchor="middle">instr + data</text>
+              <rect class="d-box mine" x="240" y="56" width="70" height="34" rx="6"></rect><text class="d-text mono" x="275" y="78" text-anchor="middle">IR</text>
+              <rect class="d-box mine" x="240" y="146" width="70" height="34" rx="6"></rect><text class="d-text mono" x="275" y="168" text-anchor="middle">MDR</text>
+              <rect class="d-box vm" x="350" y="76" width="104" height="84" rx="8"></rect><text class="d-text strong" x="402" y="112" text-anchor="middle">Register file</text><text class="d-text small" x="402" y="130" text-anchor="middle">$0 – $31</text>
+              <rect class="d-box mine" x="490" y="66" width="52" height="34" rx="6"></rect><text class="d-text mono" x="516" y="88" text-anchor="middle">A</text>
+              <rect class="d-box mine" x="490" y="136" width="52" height="34" rx="6"></rect><text class="d-text mono" x="516" y="158" text-anchor="middle">B</text>
+              <path class="d-box core" d="M580,66 L630,96 L630,140 L580,170 L580,128 L596,118 L580,108 Z"></path><text class="d-text strong" x="608" y="122" text-anchor="middle">ALU</text>
+              <rect class="d-box mine" x="648" y="101" width="62" height="34" rx="6"></rect><text class="d-text mono" x="679" y="123" text-anchor="middle">ALUOut</text>
+
+              <line class="d-line" x1="76" y1="118" x2="108" y2="118" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="206" y1="100" x2="238" y2="76" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="206" y1="140" x2="238" y2="160" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="310" y1="73" x2="348" y2="96" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="310" y1="163" x2="348" y2="140" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="454" y1="96" x2="488" y2="84" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="454" y1="140" x2="488" y2="152" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="542" y1="84" x2="578" y2="88" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="542" y1="152" x2="578" y2="148" marker-end="url(#arr)"></line>
+              <line class="d-line" x1="630" y1="118" x2="646" y2="118" marker-end="url(#arr)"></line>
+              <path class="d-line accent" d="M679,135 L679,220 L46,220 L46,142" marker-end="url(#arrA)"></path>
+              <text class="d-text small" x="360" y="236" text-anchor="middle">ALUOut feeds back: next PC, a memory address, or a value to write to a register</text>
+              <text class="d-text small" x="402" y="30" text-anchor="middle">muxes (IorD, ALUSrcA/B, MemtoReg, RegDst, PCSource) choose which wire wins</text>
+            </svg>
+            </div>
+            <figcaption><b>Figure 1.</b> The multi-cycle datapath, simplified. One memory and one ALU are shared by every step; the highlighted boxes are the internal registers that carry values from one cycle to the next.</figcaption>
+          </figure>
+
+          <p>Which wire wins at each junction is decided by multiplexers, and each multiplexer has a select signal: <code>IorD</code> picks whether memory is addressed by the PC or by ALUOut, <code>ALUSrcB</code> picks between B, the constant 4, the immediate and the shifted immediate, and so on. Those signals, plus enables like <code>MemRead</code> and <code>RegWrite</code>, are the control FSM's output.</p>
+        </section>
+
+        <section id="fsm">
+          <div class="part-label">Part 2</div>
+          <h2>The control state machine</h2>
+          <p>Every instruction starts the same way: <strong>Fetch</strong> reads the instruction into IR and bumps the PC by 4, and <strong>Decode</strong> reads both source registers and, speculatively, computes the branch target in case it turns out to be a branch. From there the FSM branches on the instruction type and returns to Fetch when the instruction is done.</p>
+
+          <table class="rules">
+            <thead><tr><th>Path</th><th>States</th><th>Cycles</th></tr></thead>
+            <tbody>
+              <tr><td><code>lw</code></td><td>Fetch → Decode → Mem addr → Mem read → Write back</td><td class="num">5</td></tr>
+              <tr><td><code>sw</code></td><td>Fetch → Decode → Mem addr → Mem write</td><td class="num">4</td></tr>
+              <tr><td><code>add</code>, <code>slt</code></td><td>Fetch → Decode → Execute → R complete</td><td class="num">4</td></tr>
+              <tr><td><code>addi</code></td><td>Fetch → Decode → I execute → I complete</td><td class="num">4</td></tr>
+              <tr><td><code>beq</code></td><td>Fetch → Decode → Branch</td><td class="num">3</td></tr>
+              <tr><td><code>j</code></td><td>Fetch → Decode → Jump</td><td class="num">3</td></tr>
+            </tbody>
+          </table>
+
+          <h3 id="try">Watch it run</h3>
+          <p>This is a small model of the same machine running a loop: load a counter from memory, add one, store it back, then a few ALU instructions and a branch that skips one instruction before jumping to the top. The highlighted state is the current cycle, the lit path is the route this instruction has taken so far, and the boxes along the bottom are the internal registers. Hover a state to see the control signals it asserts; click to pause.</p>
+          <div class="live">
+            <canvas id="mips-live" aria-label="Animation of the MIPS control FSM stepping through a program"></canvas>
+            <p class="read" id="mips-read" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section id="build">
+          <div class="part-label">Part 3</div>
+          <h2>How I built it</h2>
+          <p>The coursework handed over a skeleton that already ran <code>add</code>, plus the input parser, the memory and the output code. Everything else was mine, in five autograded tasks:</p>
+
+          <div class="steps">
+            <div class="step">
+              <h4>Classify instructions (10 pts)</h4>
+              <p>Map every opcode to its type: R-type, memory, branch, jump, immediate, or end-of-program. All R-type instructions share opcode 0 and are told apart later by their function field.</p>
+            </div>
+            <div class="step">
+              <h4>Decode in the FSM (10 pts)</h4>
+              <p>Teach the Decode state where to go next for each instruction type: memory instructions to address calculation, branches and jumps to their completion states, immediates to their own execute state.</p>
+            </div>
+            <div class="step">
+              <h4>The full FSM (15 + 15 pts)</h4>
+              <p>Write every state: the control signals it asserts and its successor. Then extend the textbook diagram with three states it doesn't have, I-type execute, I-type complete and a terminal exit state that never leaves itself.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>Each state starts by clearing every control signal, then sets only the ones it needs. That makes the FSM easy to check against the diagram: the code for a state reads exactly like the bubble in the figure. The <code>addi</code> states reuse the load path's ALU settings (A plus sign-extended immediate) but write the result straight back to <code>rt</code> instead of going to memory.</p>
+              </details>
+            </div>
+            <div class="step">
+              <h4>The datapath (50 pts)</h4>
+              <p>Make each stage honour the signals instead of assuming <code>add</code>: memory reads must use the right address (PC on fetch, ALUOut on a load), the ALU must add, subtract or follow the function field depending on ALUOp, and write-back must pick the right destination and the right source.</p>
+              <details class="deep"><summary>Under the hood</summary>
+                <p>The subtle part is the clock. The simulator keeps two copies of the internal registers, <em>current</em> and <em>next</em>. Every stage reads only the current values and writes only the next ones; at the end of the cycle next is copied into current. That mirrors real hardware, where registers only change on the clock edge, and it stops one stage from seeing a value another stage produced in the same cycle.</p>
+                <pre class="code"><span class="c">// one clock cycle (shape of the main loop)</span>
+state = FSM(state, &amp;IR_meta);   <span class="c">// set this cycle's control signals</span>
+instruction_fetch();            <span class="c">// each stage reads curr_*, writes next_*</span>
+decode_and_read_RF();
+execute();
+memory_access();
+write_back();
+curr_pipe_regs = next_pipe_regs; <span class="c">// the clock edge</span></pre>
+              </details>
+            </div>
+            <div class="step">
+              <h4>Test my own programs</h4>
+              <p>The public tests were only part of the grade; hidden programs ran too. I wrote memory files that exercise one instruction at a time (a lone <code>lw</code>, a taken and a not-taken <code>beq</code>, a jump backwards) and checked the register dump after every cycle by hand before trusting the combined programs.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="trace">
+          <div class="part-label">Part 4</div>
+          <h2>One instruction, cycle by cycle</h2>
+          <p>Here is <code>lw $1, 64($0)</code> at address 0, with the word 7 sitting at address 64:</p>
+          <div class="table-wrap">
+          <table class="rules cycles">
+            <thead><tr><th>Cycle · state</th><th>What happens</th><th>Signals that matter</th></tr></thead>
+            <tbody>
+              <tr><td>1 · Fetch</td><td>IR ← memory[PC]; PC ← PC + 4 = 4</td><td>MemRead, IRWrite, PCWrite, ALUSrcB = 01</td></tr>
+              <tr><td>2 · Decode</td><td>A ← $0 = 0; B ← $1; ALUOut ← PC + (64 « 2) (unused)</td><td>ALUSrcB = 11</td></tr>
+              <tr><td>3 · Mem addr</td><td>ALUOut ← A + 64 = 64</td><td>ALUSrcA = 1, ALUSrcB = 10, ALUOp = add</td></tr>
+              <tr><td>4 · Mem read</td><td>MDR ← memory[64] = 7</td><td>MemRead, IorD = 1</td></tr>
+              <tr><td>5 · Write back</td><td>$1 ← MDR = 7, back to Fetch</td><td>RegWrite, MemtoReg = 1, RegDst = 0</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <div class="callout why">
+            <h5>Why this matters</h5>
+            <p>Pipelined processors, the ones in every phone and laptop, overlap these same five steps across five instructions at once. Getting each step right in isolation, with registers that only change on the clock edge, is exactly the mental model you need to understand hazards, forwarding and stalls later.</p>
+          </div>
+        </section>
+
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Hardware is a timing problem.</b> Most of my bugs were not wrong arithmetic but values read one cycle too early or too late. The current/next register split is the fix, and it only clicks once you have broken it.</li>
+            <li><b>Control is data.</b> Once the FSM was a table of states and signals, adding <code>addi</code> was two new rows, not new logic sprinkled through the datapath.</li>
+            <li><b>Test one instruction at a time.</b> A combined program that fails tells you nothing. A one-line program that fails tells you the exact state and signal.</li>
+            <li><b>Read the spec, not the slides.</b> The coursework's ALUOp encoding deliberately differed from the lecture slides. Matching the autograder meant trusting the handout over memory.</li>
+          </ol>
+        </section>
+
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>MIPS</dt><dd>A classic RISC instruction set: fixed 32-bit instructions, 32 registers, loads and stores as the only memory access.</dd></div>
+            <div><dt>multi-cycle</dt><dd>A design where each instruction takes several short clock cycles, reusing one ALU and one memory across steps.</dd></div>
+            <div><dt>datapath</dt><dd>The registers, ALU, memory and wires that values flow through.</dd></div>
+            <div><dt>control signal</dt><dd>A wire from the control unit that enables a write or selects a mux input, e.g. MemRead, RegWrite, ALUSrcB.</dd></div>
+            <div><dt>FSM</dt><dd>Finite state machine. Here: 13 states, each one clock cycle, each with fixed control outputs.</dd></div>
+            <div><dt>IR / MDR</dt><dd>Instruction register and memory data register: hold the fetched instruction and the loaded word between cycles.</dd></div>
+            <div><dt>ALUOut</dt><dd>Holds the ALU result for the next cycle: an address, a sum, or a branch target.</dd></div>
+            <div><dt>CPI</dt><dd>Cycles per instruction. Between 3 and 5 here, depending on the instruction.</dd></div>
+          </dl>
+          <div class="note" style="margin-top:28px">The C source for this coursework stays private under the university's academic-conduct rules. The diagrams, the trace and the live model on this page were made for the site.</div>
+        </section>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../infos-kernel-tasks/index.html">← InfOS kernel</a>
+      <a href="../muc-screen-time-app/index.html">Next: iOS screen-time app →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/os-anims.js"></script>
+  <script>
+    (function () {
+      var c = document.getElementById("mips-live");
+      if (!c || !window.OSAnims) return;
+      var player = window.OSAnims.mips(c, document.getElementById("mips-read"));
+      new IntersectionObserver(function (e) { e[0].isIntersecting ? player.start() : player.stop(); }).observe(c);
+    })();
+  </script>
+  <script src="../../shared/walkthrough.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warehouse · Search + Planning</title>
+  <meta name="description" content="Interactive A* delivery robot and stochastic value-iteration policy in a warehouse grid.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a class="active" href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 05 · Search + planning</div>
+      <h1>Warehouse: delivery robot</h1>
+      <p class="lede">A robot has to bring numbered boxes back to a dropzone, in order, through a cluttered warehouse. First with A* search, then with a full policy that still works when the robot's wheels slip.</p>
+      <div class="tags"><span class="tag">A* search</span><span class="tag">dynamic programming</span><span class="tag">value iteration</span><span class="tag">MDP</span></div>
+    </section>
+
+    <section class="project">
+      <div class="demo-card">
+        <div class="screen"><canvas id="wh-canvas"></canvas></div>
+        <div class="controls">
+          <div class="group">
+            <button data-mode="astar" class="primary">A* delivery</button>
+            <button data-mode="policy">Stochastic policy</button>
+            <button id="wh-new">New warehouse</button>
+          </div>
+          <label>Speed <input id="wh-speed" type="range" min="1" max="20" step="1" value="6"><span class="val" data-for="wh-speed"></span></label>
+          <label class="policy-only">Moves as intended <input id="wh-prob" type="range" min="0.4" max="1" step="0.05" value="0.7"><span class="val" data-for="wh-prob"></span></label>
+          <label class="policy-only"><input id="wh-floor" type="checkbox" checked> Uneven floor costs</label>
+        </div>
+        <p class="hint" id="wh-status"></p>
+        <div class="legend">
+          <span><i style="background:#7cc4ff"></i>cells A* explored</span>
+          <span><i style="background:#ffd166"></i>chosen path</span>
+          <span><i style="background:#3ddc97"></i>dropzone</span>
+          <span><i style="background:#ff6b6b"></i>robot</span>
+        </div>
+      </div>
+
+      <!-- ===== WRITE-UP: edit freely ===== -->
+      <article class="writeup">
+        <h2>The problem</h2>
+        <p>The robot moves in eight directions (straight moves are cheaper than diagonal), lifts a box from an adjacent square, and sets it down on the dropzone from an adjacent square. It can't set a box down while standing on the dropzone. The project had three parts:</p>
+        <ul>
+          <li><strong>Part A:</strong> plan the full sequence of moves to deliver the boxes in order, in a warehouse the robot can only see around itself.</li>
+          <li><strong>Part B:</strong> produce a complete policy (best action from every square) when each floor tile has its own cost.</li>
+          <li><strong>Part C:</strong> the same, but moves are stochastic. The robot sometimes slips 45° or 90° off its intended direction.</li>
+        </ul>
+
+        <h2>My approach</h2>
+        <ul>
+          <li><strong>A* per leg:</strong> each trip (dropzone → box, box → dropzone) is its own A* search over the 8-connected grid with a Chebyshev-distance heuristic. The goal test is "next to the target," not "on it."</li>
+          <li><strong>Only what it can see:</strong> in part A the robot only learns what a cell contains when it's next to it, so I cached every observed cell and planned with what was known so far.</li>
+          <li><strong>Path to actions:</strong> I walked the search tree backward from the goal to rebuild the path, then added <code>lift</code> and <code>down</code> actions. The robot always steps off the dropzone before putting a box down.</li>
+          <li><strong>Value iteration (B and C):</strong> starting from the goal, I repeatedly updated each cell's cost-to-go until nothing changed. In part C each update is an expected cost over the intended, slanted and sideways outcomes, and a collision costs a big penalty. The state also tracked whether the robot is carrying a box.</li>
+        </ul>
+
+        <h3>What to try</h3>
+        <p>In "Stochastic policy," drag "Moves as intended" down to 0.4. The arrows start steering away from walls, because a slip next to a wall means a costly collision. Click a box to retarget, or click the floor to add or remove shelving.</p>
+
+        <h3>About this demo</h3>
+        <p>This is a from-scratch JavaScript rebuild written for this page. My original Python solution stays private under the course honor code.</p>
+      </article>
+    </section>
+
+    <nav class="pager">
+      <a href="../indiana-drones-slam/index.html">← SLAM</a>
+      <a href="../aos-vm-resource-manager/index.html">Next: VM scheduler →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/common.js"></script>
+  <script src="warehouse-map.js"></script>
+  <script src="astar.js"></script>
+  <script src="value-iteration.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+/* ============================================================
+   Mobile section · zoom out from the chip to the phone
+   Markup in projects.html; scroll behaviour in js/phone-zoom.js
+   ============================================================ */
+.pz-label { color: #e6ebf2; }
+.pz-world { position: absolute; inset: 0; perspective: 1400px; transform-style: preserve-3d; visibility: hidden; z-index: 4; pointer-events: none; }
+.pz-world .pz-app { pointer-events: auto; }
+
+/* ---------- the phone ---------- */
+.pz-phone {
+  position: absolute; left: 50%; top: 50%; width: 300px; height: 620px; transform: translate(-50%, -50%) scale(4.7);
+  transform-style: preserve-3d; will-change: transform;
+}
+.pz-bezel {
+  position: absolute; inset: 0; border-radius: 44px; box-sizing: border-box;
+  border: 14px solid #1a1d24; background: transparent;
+  box-shadow: 0 0 0 2px #3a3f4a, 0 40px 90px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.pz-notch { position: absolute; top: 14px; left: 50%; width: 120px; height: 28px; transform: translateX(-50%); background: #1a1d24; border-radius: 0 0 18px 18px; z-index: 3; }
+.pz-screen {
+  position: absolute; inset: 14px; border-radius: 32px; overflow: hidden; opacity: 0;
+  background: #05091a; z-index: 2;   /* = the board's flat colour, so the whole screen reads as the OS area */
+}
+.pz-status { display: flex; justify-content: space-between; padding: 12px 22px 0; font: 600 12px var(--sans); color: #fff; }
+.pz-icons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px 10px; padding: 48px 22px 0; }
+.pz-icons i, .pz-dock i { display: block; aspect-ratio: 1; border-radius: 12px; background: var(--c, #555); box-shadow: inset 0 -8px 16px rgba(0,0,0,.25); }
+.pz-icon-st { position: relative; box-shadow: 0 0 0 3px #fff, inset 0 -8px 16px rgba(0,0,0,.25) !important; }
+.pz-icon-st::after { content: ""; position: absolute; inset: 28% 22% 22%; border-radius: 3px; background: linear-gradient(to top, #fff 0 40%, transparent 40%), linear-gradient(to top, #fff 0 70%, transparent 70%), linear-gradient(to top, #fff 0 100%); background-size: 24% 100%; background-position: 0 100%, 50% 100%, 100% 100%; background-repeat: no-repeat; }
+.pz-dock { position: absolute; left: 16px; right: 16px; bottom: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 12px; border-radius: 22px; background: rgba(255,255,255,.14); }
+.pz-dock i:nth-child(1) { --c: #3ddc97; } .pz-dock i:nth-child(2) { --c: #ff8a5b; } .pz-dock i:nth-child(3) { --c: #74c0fc; } .pz-dock i:nth-child(4) { --c: #e599f7; }
+
+/* ---------- the two app cards that pop out ---------- */
+.pz-app {
+  position: absolute; left: 50%; top: 50%; width: 300px; box-sizing: border-box; padding: 18px 18px 16px; z-index: 5;
+  background: #fafaf8; color: #151515; border-radius: 22px; text-decoration: none; opacity: 0; pointer-events: none;
+  box-shadow: 0 30px 70px rgba(0,0,0,.6); display: grid; gap: 6px; transform: translate(-50%, -50%) scale(.2);
+}
+.pz-app-icon { width: 54px; height: 54px; border-radius: 14px; background: var(--c); position: relative; box-shadow: inset 0 -10px 20px rgba(0,0,0,.25); margin-bottom: 4px; }
+.pz-app-icon b { position: absolute; inset: 28% 22% 22%; background: linear-gradient(to top, #fff 0 40%, transparent 40%), linear-gradient(to top, #fff 0 70%, transparent 70%), linear-gradient(to top, #fff 0 100%); background-size: 24% 100%; background-position: 0 100%, 50% 100%, 100% 100%; background-repeat: no-repeat; border-radius: 2px; }
+.pz-app-name { font-family: var(--serif); font-size: 1.25rem; color: #151515; }
+.pz-app-sub { font-family: var(--sans); font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: #6b6b6b; }
+.pz-app-text { font-family: var(--sans); font-size: .86rem; line-height: 1.5; color: #3a3a3a; margin-top: 4px; }
+.pz-app-cta { font-family: var(--sans); font-size: .86rem; font-weight: 600; color: #2b6cb0; margin-top: 6px; }
+.pz-app:hover .pz-app-cta { text-decoration: underline; }
+.pz-app-icon--ms { display: grid; place-items: center; background: linear-gradient(135deg, #6633c6, #228ee3); }
+.pz-app-icon--ms b { position: static; inset: auto; background: none; font: 700 1.6rem var(--serif); color: #fff; }
+/* the parts of the MemSurf card that only show once it has grown into the full card (--exp 0..1, set by js/phone-zoom.js) */
+.pz-app--memsurf { --exp: 0; }
+.pz-app-more { display: grid; gap: 8px; overflow: hidden; opacity: var(--exp); max-height: calc(var(--exp) * 480px); margin-top: calc(var(--exp) * 6px); }
+.pz-app-tag { font-family: var(--serif); font-style: italic; font-size: 1.2rem; color: #6633c6; }
+.pz-app-why { font-family: var(--sans); font-size: .86rem; line-height: 1.5; color: #151515; border-left: 3px solid #228ee3; padding-left: 12px; }
+
+@media (max-width: 760px) {
+  .pz-phone { width: 200px; height: 410px; }
+  .pz-bezel { border-width: 10px; border-radius: 32px; }
+  .pz-screen { inset: 10px; border-radius: 24px; }
+  .pz-icons { gap: 10px 8px; padding: 36px 14px 0; }
+  .pz-app { width: min(300px, 86vw); }
+}

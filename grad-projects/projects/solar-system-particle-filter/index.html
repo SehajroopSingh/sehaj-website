@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solar System · Particle Filter</title>
+  <meta name="description" content="Interactive particle filter that finds a lost satellite from gravity readings alone.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a class="active" href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Project 01 · Localization</div>
+      <h1>Solar System: finding a lost satellite</h1>
+      <p class="lede">A satellite is lost somewhere in a solar system. The only thing it can measure is how strongly gravity is pulling on it. A particle filter turns that single number, read over and over, into a position.</p>
+      <div class="tags"><span class="tag">particle filter</span><span class="tag">Monte Carlo localization</span><span class="tag">resampling</span></div>
+    </section>
+
+    <section class="project">
+      <div class="demo-card">
+        <div class="screen"><canvas id="pf-canvas"></canvas></div>
+        <div class="controls">
+          <div class="group">
+            <button id="pf-play" class="primary">Pause</button>
+            <button id="pf-step">Step</button>
+            <button id="pf-reset">New system</button>
+          </div>
+          <label>Particles <input id="pf-count" type="range" min="1000" max="12000" step="500" value="6000"><span class="val" data-for="pf-count"></span></label>
+          <label>Speed <input id="pf-speed" type="range" min="0.5" max="8" step="0.5" value="3"><span class="val" data-for="pf-speed"></span></label>
+          <label><input id="pf-truth" type="checkbox" checked> Show true position</label>
+        </div>
+        <div class="legend">
+          <span><i style="background:#7cc4ff"></i>particles</span>
+          <span><i style="background:#b69cff"></i>places matching the reading</span>
+          <span><i style="background:#ffd166"></i>estimate</span>
+          <span><i style="background:#ff6b6b"></i>true satellite</span>
+        </div>
+      </div>
+
+      <!-- ===== WRITE-UP: edit freely ===== -->
+      <article class="writeup">
+        <h2>The problem</h2>
+        <p>The satellite knows the commands it was given (how far to move and how much to turn), but not where it started. Each step it gets one noisy reading: the total magnitude of gravitational pull from the sun and planets. A single reading only says "you're somewhere on this ring" (the purple haze). As the satellite and planets move, the rings shift, and only one place stays consistent with every reading.</p>
+        <p>Part two of the project: once localized, compute the bearing from the satellite to the home planet to send an SOS, this time using how illuminated each planet looks from the satellite.</p>
+
+        <h2>My approach</h2>
+        <ul>
+          <li><strong>Scatter:</strong> 20,000 particles spread uniformly over ±4 AU, each facing along a circular orbit.</li>
+          <li><strong>Weigh:</strong> each particle's weight is a Gaussian likelihood comparing the measured gravity with what that particle would feel at its position.</li>
+          <li><strong>Resample:</strong> low-variance (systematic) resampling. I shrank the population as the belief tightened: halving it early, then keeping a steady fraction. That kept each step fast without losing accuracy.</li>
+          <li><strong>Fuzz:</strong> small random jitter after resampling, so particles don't collapse onto identical copies.</li>
+          <li><strong>Move:</strong> every particle applies the same distance and steering command using a bicycle-style motion model.</li>
+          <li><strong>Estimate:</strong> the mean of the surviving particles.</li>
+        </ul>
+        <p>For the SOS part, the same filter ran on the vector of planet-illumination readings, and the bearing was the angle from the estimate to the home planet's predicted next position.</p>
+
+        <h3>What to try</h3>
+        <p>Drop the particle count to 1,000 and hit "New system" a few times. Sometimes the cloud locks onto the wrong ring. That's the classic particle-filter trade-off between speed and robustness.</p>
+
+        <h3>About this demo</h3>
+        <p>This is a from-scratch JavaScript rebuild written for this page. The masses are exaggerated so the planets' pull is visible. My original Python solution stays private under the course honor code.</p>
+      </article>
+    </section>
+
+    <nav class="pager">
+      <a href="../../../projects.html">← All projects</a>
+      <a href="../hopscotch-kalman-filter/index.html">Next: Kalman filter →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/common.js"></script>
+  <script src="solar-system.js"></script>
+  <script src="particle-filter.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>
