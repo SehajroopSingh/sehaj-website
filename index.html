@@ -114,11 +114,12 @@
   </div>
 
   <!-- ═══════════════════════ WHO I AM ═══════════════════════
-       Headline and synopsis centred on top; underneath, four cards. As each
-       scrolls into view, its .seat-bg slides in from alternating sides as a
-       rounded square turning 90deg (anime.js-style inOutExpo), then stretches
-       into the full rectangle, then the text fades in. Driven by
-       js/seat-cards.js; without JS the cards simply show. -->
+       Headline and synopsis centred on top; underneath, four cards. Each
+       card's entrance is scrubbed by scroll: as it rises up the screen its
+       .seat-bg slides in from alternating sides as a rounded square turning
+       90deg, then stretches into the full rectangle, then the text fades in.
+       Once played through it stays put. Driven by js/seat-cards.js; without
+       JS (or with reduced motion) the cards simply show. -->
   <section id="question" class="seats" aria-labelledby="question-heading">
     <div class="container">
       <div class="seats-head">
@@ -459,6 +460,6 @@
 </footer>
 
 <script src="js/main.js?v=39"></script>
-<script src="js/seat-cards.js?v=1"></script>
+<script src="js/seat-cards.js?v=2"></script>
 </body>
 </html>
