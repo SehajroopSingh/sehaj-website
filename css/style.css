@@ -3116,6 +3116,15 @@ a.bento-link::after { content: " \2192"; }
 .seat-anim .seat-card:not(.seat-done) .seat-bg { opacity: 0; }
 .seat-anim .seat-card:not(.seat-done) .seat-content { opacity: 0; }
 .seats-note { text-align: center; margin: clamp(2rem, 4vw, 3rem) auto 0; max-width: 60ch; color: var(--ink-soft); }
+/* Pinned while the cards come in (set by js/seat-cards.js on large
+   screens): the section becomes a tall scroll runway, .seats-viewport
+   sticks to the screen, and the script moves .seats-track inside it,
+   holding still while each card plays in. The section's own padding moves
+   onto the track, and the viewport (not the section) clips the slide-ins,
+   because overflow: hidden on the section would stop it sticking. */
+.seats.seats--pin { padding-block: 0; overflow: visible; }
+.seats--pin .seats-viewport { position: sticky; top: 0; overflow: hidden; }
+.seats--pin .seats-track { will-change: transform; }
 @media (max-width: 900px) {
   .seat-content { grid-template-columns: 1fr; gap: 0.5rem; }
   .seat-bg { border-radius: 1.1rem; }
