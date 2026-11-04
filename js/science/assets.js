@@ -6,7 +6,7 @@
    js/science/scenes.js (numbers in js/timing.js).
 
      SciAssets.build(scene, T, K) → { neural, neurons, axons, spikes,
-       dna, brain, brainMat, earth, surface, hero, heroMatList, crowd,
+       dna, brain, brainMat, brainMats, heroHead, heroHeadMats, heroBodyMats, earth, surface, hero, heroMatList, crowd,
        crowdMatList, land, landMat, globe, clouds, atmo, folk,
        folkMatList, stars, points, pGeo, pFrom, pTo, NP, frame,
        LAND_Y, E0, EY, rnd }
@@ -21,33 +21,50 @@ window.SciAssets = (function () {
     var seed = 17; function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
     var glowStar = K.starTex();
 
-    /* ---------- neurons: somas with dendritic trees, tube axons, glowing spikes ---------- */
+    /* ---------- neurons: smooth somas, a few short dendrites, clean axons between them, glowing spikes ---------- */
     var neural = new T.Group(); scene.add(neural);
-    var somaMat = K.std(0x8fb3ff, 0.45, 0.05, { emissive: 0x1b2a6b, emissiveIntensity: 0.6 });
-    var axonMat = K.std(0x6f8fe0, 0.6, 0.1, { emissive: 0x15245c, emissiveIntensity: 0.5, transparent: true, opacity: 0.85 });
-    var neurons = [], axons = [];
-    function branch(from, dir, len, depth, parent) {
-      var end = from.clone().addScaledVector(dir, len);
-      var tube = new T.TubeGeometry(new T.LineCurve3(from, end), 1, 0.018 * (depth + 1), 5, false);
-      mesh(tube, axonMat, 0, 0, 0, parent).castShadow = false;
-      if (depth > 0) for (var b = 0; b < 2; b++) { var nd = dir.clone().add(new T.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).multiplyScalar(1.1)).normalize(); branch(end, nd, len * 0.65, depth - 1, parent); }
+    var somaMat = K.std(0x5f86e6, 0.55, 0.05, { emissive: 0x1a2c6e, emissiveIntensity: 0.5 });
+    var axonMat = K.std(0x6a8ee8, 0.55, 0.1, { emissive: 0x16266a, emissiveIntensity: 0.45, transparent: true, opacity: 0.9 });
+    var neurons = [], axons = [], UPV = new T.Vector3(0, 1, 0);
+    var pts = [];                                            // somas on a loosely jittered, staggered grid: spread out, never crowding, never a lattice
+    for (var gy = 0; gy < 3; gy++) for (var gx = 0; gx < 4; gx++) {
+      if ((gy === 0 && gx === 3) || (gy === 2 && gx === 0)) continue;
+      pts.push(new T.Vector3(-6.2 + gx * 4.1 + (gy % 2) * 1.6 + (rnd() - 0.5) * 2.6, -2.9 + gy * 2.9 + (rnd() - 0.5) * 1.8, -2 + rnd() * 4));
     }
-    for (var i = 0; i < 16; i++) {
-      var p = new T.Vector3(-7 + rnd() * 14, -3.5 + rnd() * 7, -3 + rnd() * 6);
-      var soma = mesh(new T.SphereGeometry(0.26 + rnd() * 0.14, 20, 20), somaMat.clone(), p.x, p.y, p.z, neural); soma.scale.set(1, 0.85 + rnd() * 0.3, 1);
-      for (var d = 0; d < 4; d++) branch(p, new T.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize(), 0.55 + rnd() * 0.4, 2, neural);
-      var halo = K.sprite(K.glowTex("rgba(140,170,255,1)"), 0xffffff, 1.4); halo.position.copy(p); neural.add(halo);
+    function dendrite(p, dir, r, len) {                      // a short, gently curved, tapering dendrite that forks once at the tip
+      var side = new T.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).cross(dir).normalize().multiplyScalar(len * 0.25);
+      var p0 = p.clone().addScaledVector(dir, r * 0.75), p2 = p0.clone().addScaledVector(dir, len), curve = new T.QuadraticBezierCurve3(p0, p0.clone().lerp(p2, 0.5).add(side), p2);
+      for (var k = 0; k < 4; k++) {
+        var a0 = curve.getPoint(k / 4), a1 = curve.getPoint((k + 1) / 4), rb = r * 0.3 * (1 - k / 4) + 0.025, rt = r * 0.3 * (1 - (k + 1) / 4) + 0.025;
+        var seg = mesh(new T.CylinderGeometry(rt, rb, a0.distanceTo(a1) * 1.04, 8), somaMat, 0, 0, 0, neural);
+        seg.position.copy(a0).lerp(a1, 0.5); seg.quaternion.setFromUnitVectors(UPV, a1.clone().sub(a0).normalize()); seg.castShadow = false;
+      }
+      var tip = curve.getTangent(1);                         // the fork: two tiny twigs
+      [-1, 1].forEach(function (sg) {
+        var td = tip.clone().addScaledVector(side.clone().normalize(), sg * 0.9).normalize(), tw = mesh(new T.CylinderGeometry(0.012, 0.03, 0.28, 6), somaMat, 0, 0, 0, neural);
+        tw.position.copy(p2).addScaledVector(td, 0.13); tw.quaternion.setFromUnitVectors(UPV, td); tw.castShadow = false;
+      });
+    }
+    pts.forEach(function (p) {
+      var r = 0.3 + rnd() * 0.1;
+      var soma = mesh(new T.SphereGeometry(r, 24, 24), somaMat.clone(), p.x, p.y, p.z, neural);
+      var a0 = rnd() * 6.283;
+      for (var d = 0; d < 3; d++) {                          // three dendrites, spread evenly around the soma
+        var ang = a0 + d * 2.094 + (rnd() - 0.5) * 0.6, dir = new T.Vector3(Math.cos(ang), Math.sin(ang), (rnd() - 0.5) * 0.5).normalize();
+        dendrite(p, dir, r, 0.7 + rnd() * 0.3);
+      }
+      var halo = K.sprite(K.glowTex("rgba(140,170,255,1)"), 0xffffff, 1.5); halo.position.copy(p); neural.add(halo);
       neurons.push({ p: p, m: soma, halo: halo });
-    }
-    neurons.forEach(function (n, i) {
+    });
+    var linked = {};
+    neurons.forEach(function (n, i) {                        // each soma reaches its two nearest neighbours with one smooth axon
       var targets = neurons.map(function (o, j) { return { j: j, d: n.p.distanceTo(o.p) }; }).filter(function (t) { return t.j !== i; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 2);
       targets.forEach(function (t) {
-        var q = neurons[t.j].p, mid = n.p.clone().lerp(q, 0.5).add(new T.Vector3((rnd() - 0.5) * 2, (rnd() - 0.5) * 2, 0));
+        var key = Math.min(i, t.j) + "-" + Math.max(i, t.j); if (linked[key]) return; linked[key] = true;
+        var q = neurons[t.j].p, mid = n.p.clone().lerp(q, 0.5).add(new T.Vector3((rnd() - 0.5) * 1.6, (rnd() - 0.5) * 1.6, (rnd() - 0.5) * 0.6));
         var curve = new T.QuadraticBezierCurve3(n.p, mid, q);
-        mesh(new T.TubeGeometry(curve, 24, 0.045, 6, false), axonMat, 0, 0, 0, neural).castShadow = false;
-        // myelin sheaths along the axon
-        for (var mk = 0.15; mk < 0.9; mk += 0.2) { var sh = mesh(new T.CylinderGeometry(0.065, 0.065, 0.22, 8), K.std(0xdfe7ff, 0.5, 0), 0, 0, 0, neural); sh.position.copy(curve.getPoint(mk)); sh.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), curve.getTangent(mk)); sh.castShadow = false; }
-        axons.push({ curve: curve, from: i, to: t.j });
+        mesh(new T.TubeGeometry(curve, 32, 0.04, 8, false), axonMat, 0, 0, 0, neural).castShadow = false;
+        axons.push({ curve: curve, from: i, to: t.j }); axons.push({ curve: new T.QuadraticBezierCurve3(q, mid, n.p), from: t.j, to: i });
       });
     });
     var spikes = [];
@@ -68,27 +85,49 @@ window.SciAssets = (function () {
     }
     helixPts.forEach(function (pts) { mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 160, 0.07, 8, false), strandMat, 0, 0, 0, dna); });
 
-    /* ---------- brain: two wrinkled hemispheres (vertex-displaced spheres), cerebellum, stem ---------- */
-    var brainMat = K.std(0xe9a4b4, 0.62, 0, { emissive: 0x3a1020, emissiveIntensity: 0.12, transparent: true, opacity: 1, side: T.DoubleSide });
-    var brain = new T.Group(); scene.add(brain); brain.visible = false;
-    function wrinkled(radius, seg, amp, freq) {               // a sphere with sulci/gyri folded into its surface
-      var g = new T.SphereGeometry(radius, seg, Math.round(seg * 0.7)), pos = g.attributes.position, v = new T.Vector3();
-      for (var i = 0; i < pos.count; i++) {
-        v.fromBufferAttribute(pos, i); var n = v.clone().normalize();
-        var th = Math.atan2(n.z, n.x), ph = Math.acos(n.y);
-        var ridge = Math.sin(th * freq + Math.sin(ph * 3.1) * 2.2) * Math.sin(ph * freq * 0.8 + Math.cos(th * 2.3) * 1.7);
-        var fine = Math.sin(th * freq * 2.7 + ph * 5.1) * Math.sin(ph * freq * 1.9 - th * 1.3) * 0.35;
-        var d = amp * (0.55 + 0.45 * Math.abs(ridge)) * (ridge > 0 ? 1 : 0.35) + amp * fine;
-        v.addScaledVector(n, d); pos.setXYZ(i, v.x, v.y, v.z);
+    // flat 2D look: swap the 3D neurons and DNA for drawn blobs and a flat ladder (js/science/blobs.js)
+    if (window.SciBlobs) window.SciBlobs({ T: T, K: K, neurons: neurons, axons: axons, spikes: spikes, neural: neural, dna: dna });
+
+    /* ---------- brain: stylised — two smooth hemispheres with round, worm-like gyri running front to back over them,
+       a dark fissure between, a ridged cerebellum and a stem. It does not turn: it sits at a slight three-quarter angle, the
+       same way the head that forms around it faces. ---------- */
+    var brainMat = K.std(0xb86e84, 0.65, 0, { emissive: 0x3a1020, emissiveIntensity: 0.12, transparent: true, opacity: 1, side: T.DoubleSide });   // the base (shows as the grooves)
+    var gyriMat = K.std(0xdfa0b2, 0.6, 0, { emissive: 0x3a1020, emissiveIntensity: 0.12, transparent: true, opacity: 1 });                       // the ridges
+    var brainMats = [brainMat, gyriMat];
+    var brain = new T.Group(); scene.add(brain); brain.visible = false; brain.rotation.set(0.05, 0.6, 0);
+    var AX = 0.8, AY = 1.0, AZ = 1.3, GAP = 0.42;           // hemisphere half-axes; each sits this far from the midline (they overlap, which hides the join)
+    // a gyrus is a tube hugging the hemisphere's surface, running front → back and meandering; the ends tuck into the surface
+    function tube(pts) { mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 160, 0.1, 10, false), gyriMat, 0, 0, 0, brain).castShadow = false; }
+    function tuck(pts) { pts.forEach(function (q) { q.multiplyScalar(0.975); }); [0, 1, pts.length - 2, pts.length - 1].forEach(function (i, k) { pts[i].multiplyScalar(k === 0 || k === 3 ? 0.8 : 0.93); }); return pts; }   // (the tubes sit a little sunk into the surface)
+    function topGyrus(sx, x0, amp, ph) {                    // over the top: an arc in the y–z plane at a sideways offset x0
+      var pts = [];
+      for (var i = 0; i <= 56; i++) {
+        var th = -1.5 + (i / 56) * 3.0, x = Math.max(-AX * 0.985, Math.min(AX * 0.985, x0 + Math.sin(th * 3.6 + ph) * amp));
+        var m = Math.sqrt(Math.max(0, 1 - (x / AX) * (x / AX)));
+        pts.push(new T.Vector3(sx * (GAP + x), AY * m * Math.cos(th), AZ * m * Math.sin(th)));
       }
-      g.computeVertexNormals(); return g;
+      tube(tuck(pts));
     }
-    for (var b = 0; b < 2; b++) {
-      var hemiB = mesh(wrinkled(1.18, 96, 0.075, 9), brainMat, (b ? 1 : -1) * 0.62, 0, 0, brain); hemiB.scale.set(0.78, 1, 1.32); hemiB.rotation.y = (b ? -1 : 1) * 0.08;
+    function sideGyrus(sx, y0, amp, ph) {                   // along the side: front → back at a height y0, bulging out to the hemisphere's surface
+      var pts = [];
+      for (var i = 0; i <= 56; i++) {
+        var t = -0.93 + (i / 56) * 1.86, y = y0 + Math.sin(t * 5.2 + ph) * amp, ym = Math.sqrt(Math.max(0, 1 - (y / AY) * (y / AY)));
+        var z = t * AZ * ym, x = AX * Math.sqrt(Math.max(0, 1 - (y / AY) * (y / AY) - (z / AZ) * (z / AZ)));
+        pts.push(new T.Vector3(sx * (GAP + x), y, z));
+      }
+      tube(tuck(pts));
     }
-    mesh(new T.BoxGeometry(0.05, 1.6, 2.6), K.std(0x9c5a6c, 0.8, 0), 0, 0.1, 0, brain).castShadow = false;   // the fissure between them
-    var cereb = mesh(wrinkled(0.52, 48, 0.03, 14), brainMat, 0, -0.95, -0.75, brain); cereb.scale.set(1.5, 0.7, 1);
-    mesh(new T.CylinderGeometry(0.2, 0.26, 1.0, 14), K.std(0xd9a0b0, 0.7, 0), 0, -1.25, -0.3, brain);          // brain stem
+    [-1, 1].forEach(function (sx) {
+      var base = mesh(new T.SphereGeometry(1, 48, 32), brainMat, sx * GAP, 0, 0, brain); base.scale.set(AX * 0.985, AY * 0.985, AZ * 0.985);
+      var ph = rnd() * 6.283;
+      [-0.3, -0.05, 0.2, 0.44].forEach(function (x0, k) { topGyrus(sx, x0, 0.08, ph + k * 0.45); });        // from the midline out over the top
+      [0.5, 0.24, -0.02, -0.28, -0.52].forEach(function (y0, k) { sideGyrus(sx, y0, 0.05, ph + 1.1 + k * 0.45); }); // and down the side
+    });
+    var fissure = mesh(new T.SphereGeometry(1, 24, 16), K.std(0x5e2636, 0.85, 0, { transparent: true, opacity: 1 }), 0, 0, 0, brain); fissure.scale.set(0.012, 0.87, 1.13); fissure.castShadow = false;   // the dark fissure line: a thin disc that just shows along the join
+    var cereb = mesh(new T.SphereGeometry(0.5, 32, 24), brainMat, 0, -0.9, -0.72, brain); cereb.scale.set(1.55, 0.72, 1);   // cerebellum, with fine horizontal folia
+    for (var fl = -0.22; fl <= 0.24; fl += 0.11) { var q = Math.sqrt(Math.max(0.05, 1 - (fl / 0.36) * (fl / 0.36))), ring = mesh(new T.TorusGeometry(0.5, 0.03, 8, 40), gyriMat, 0, -0.9 + fl, -0.72, brain); ring.rotation.x = Math.PI / 2; ring.scale.set(1.5 * q, 1 * q, 1); ring.castShadow = false; }
+    mesh(new T.CylinderGeometry(0.2, 0.26, 1.0, 14), brainMat, 0, -1.2, -0.3, brain);          // brain stem
+    brain.traverse(function (o) { if (o.isMesh) o.renderOrder = 1; });   // drawn before the (translucent) head that forms around it, so the head fades over it instead of hiding it
 
     /* ---------- one person, then a crowd, standing on the top of a (huge) globe ----------
        Everything below lives inside the earth group so one continuous camera pull-back
@@ -98,22 +137,24 @@ window.SciAssets = (function () {
     var surface = new T.Group(); surface.position.set(0, 10, 0); surface.scale.setScalar(1 / E0); earth.add(surface);
     var HS = 5.3;                                            // hero scale: a crowd head (r .36) becomes the big head (r 1.9)
     function personMats(shirt, transparent) { var ex = transparent ? { transparent: true, opacity: 0.001 } : {}; return { shirt: K.std(shirt, 0.9, 0, ex), skin: K.std(0xd9a784, 0.7, 0, ex), hair: K.std(0x2a1d14, 0.9, 0, ex), pants: K.std(0x22283a, 0.9, 0, ex), eye: K.std(0x1a1410, 0.3, 0, ex) }; }
-    function buildPerson(m, hair) {                          // feet at y=0, head centre at y=2.5
-      var g = new T.Group();
+    function buildPerson(m, hair) {                          // feet at y=0, head centre at y=2.5 (the head is its own group, g.userData.head)
+      var g = new T.Group(), head = new T.Group(); head.position.set(0, 2.5, 0); g.add(head); g.userData.head = head;
       mesh(new T.CylinderGeometry(0.2, 0.22, 1.0, 8), m.pants, -0.2, 0.5, 0, g); mesh(new T.CylinderGeometry(0.2, 0.22, 1.0, 8), m.pants, 0.2, 0.5, 0, g);
       mesh(K.rounded(0.72, 1.1, 0.42, 0.16), m.shirt, 0, 1.55, 0, g);
       mesh(new T.CylinderGeometry(0.1, 0.09, 0.95, 8), m.shirt, -0.46, 1.5, 0, g).rotation.z = 0.1; mesh(new T.CylinderGeometry(0.1, 0.09, 0.95, 8), m.shirt, 0.46, 1.5, 0, g).rotation.z = -0.1;
       mesh(new T.SphereGeometry(0.07, 8, 8), m.skin, -0.46, 1.0, 0, g); mesh(new T.SphereGeometry(0.07, 8, 8), m.skin, 0.46, 1.0, 0, g);   // hands
       mesh(new T.CylinderGeometry(0.12, 0.14, 0.3, 10), m.skin, 0, 2.1, 0, g);                       // neck
-      mesh(new T.SphereGeometry(0.36, 16, 16), m.skin, 0, 2.5, 0, g);
-      mesh(new T.SphereGeometry(0.06, 8, 8), m.skin, 0, 2.46, 0.35, g);                              // nose
-      [-1, 1].forEach(function (sx) { mesh(new T.SphereGeometry(0.035, 8, 8), m.eye, sx * 0.12, 2.55, 0.33, g); });   // eyes
-      [-1, 1].forEach(function (sx) { mesh(new T.SphereGeometry(0.07, 8, 8), m.skin, sx * 0.36, 2.5, 0, g).scale.set(0.5, 1, 0.8); });
-      if (hair) mesh(new T.SphereGeometry(0.38, 16, 16, 0, 6.283, 0, 1.3), m.hair, 0, 2.56, 0, g);
+      mesh(new T.SphereGeometry(0.36, 24, 24), m.skin, 0, 0, 0, head);
+      mesh(new T.SphereGeometry(0.06, 8, 8), m.skin, 0, -0.04, 0.35, head);                           // nose
+      [-1, 1].forEach(function (sx) { mesh(new T.SphereGeometry(0.035, 8, 8), m.eye, sx * 0.12, 0.05, 0.33, head); });   // eyes
+      [-1, 1].forEach(function (sx) { mesh(new T.SphereGeometry(0.07, 8, 8), m.skin, sx * 0.36, 0, 0, head).scale.set(0.5, 1, 0.8); });
+      if (hair) mesh(new T.SphereGeometry(0.38, 24, 24, 0, 6.283, 0, 1.3), m.hair, 0, 0.06, 0, head);
       return g;
     }
     var heroMats = personMats(0x3a4a6b, true), heroMatList = [heroMats.shirt, heroMats.skin, heroMats.hair, heroMats.pants, heroMats.eye];
-    var hero = buildPerson(heroMats, true); hero.scale.setScalar(HS); hero.position.y = 0; hero.renderOrder = 2; surface.add(hero);
+    var hero = buildPerson(heroMats, true); hero.scale.setScalar(HS); hero.position.y = 0; surface.add(hero);
+    hero.traverse(function (o) { if (o.isMesh) o.renderOrder = 2; });   // (after the brain — see above)
+    var heroHead = hero.userData.head, heroHeadMats = [heroMats.skin, heroMats.hair, heroMats.eye], heroBodyMats = [heroMats.shirt, heroMats.pants];
     var crowd = new T.Group(); surface.add(crowd);
     var shirtCols = [0x3a4a6b, 0x8a3a3a, 0x2f6b4a, 0x5b4a8a, 0x8a6a2a, 0xe6ebf2];
     var crowdMatSets = shirtCols.map(function (c) { return personMats(c, true); }), crowdMatList = [];
@@ -176,8 +217,8 @@ window.SciAssets = (function () {
 
     return {
       neural: neural, neurons: neurons, axons: axons, spikes: spikes,
-      dna: dna, brain: brain, brainMat: brainMat,
-      earth: earth, surface: surface, hero: hero, heroMatList: heroMatList, crowd: crowd, crowdMatList: crowdMatList,
+      dna: dna, brain: brain, brainMat: brainMat, brainMats: brainMats, brain2d: window.SciBrain2D ? window.SciBrain2D(T, scene) : null,
+      earth: earth, surface: surface, hero: hero, heroMatList: heroMatList, heroHead: heroHead, heroHeadMats: heroHeadMats, heroBodyMats: heroBodyMats, crowd: crowd, crowdMatList: crowdMatList,
       land: land, landMat: landMat, globe: globe, clouds: clouds, atmo: atmo, folk: folk, folkMatList: folkMatList,
       stars: stars, points: points, pGeo: pGeo, pFrom: pFrom, pTo: pTo, NP: NP, frame: frame, frameMats: frameMats,
       LAND_Y: LAND_Y, E0: E0, EY: EY, rnd: rnd,

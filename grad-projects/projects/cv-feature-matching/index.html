@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local Feature Matching · SIFT</title>
+  <meta name="description" content="A Harris corner detector, SIFT-style descriptors and a ratio-test matcher, tested on Notre Dame, Mount Rushmore and Gaudí.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=5">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a class="active" href="../cv-feature-matching/index.html">SIFT</a>
+        <a href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a href="../cv-scene-recognition/index.html">Scene CNN</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Computer vision · partner project</div>
+      <h1>Feature matching: finding the same spot in two photos</h1>
+      <p class="lede">Before a computer can stitch a panorama or rebuild a building in 3D, it has to find points that are the same in two different photos. We built that pipeline from scratch: a corner detector, a SIFT-style descriptor and a matcher, and tested it on landmark photos taken from different places and at different times.</p>
+      <div class="tags"><span class="tag">Python</span><span class="tag">NumPy</span><span class="tag">PyTorch</span><span class="tag">Harris corners</span><span class="tag">SIFT</span><span class="tag">~6 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">The problem</a></li>
+            <li><a href="#harris">Part 1 · Harris corners</a></li>
+            <li><a href="#describe">Part 2 · Descriptors</a></li>
+            <li><a href="#match">Part 3 · Matching</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Built:</strong> the classic pipeline for finding the same points in two photos of a place: a Harris corner detector, two kinds of feature descriptor (raw patches and a SIFT-style descriptor) and a matcher with a ratio test.</li>
+              <li><strong>Tested on:</strong> Notre Dame, Mount Rushmore and a Gaudí building, each photographed twice from different positions and at different times.</li>
+              <li><strong>Result:</strong> about 83% of the top 100 matches correct on Notre Dame with SIFT, about 61% on Mount Rushmore, and a clear failure on the Gaudí pair, which taught me the most.</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>Teaching a computer to say "that's the same spot"</h2>
+          <p>Panoramas, 3D reconstruction and visual navigation all start the same way: find points that are clearly the same physical spot in two different photos. The photos are taken from different places, at different times, in different light. The job is to find a few thousand distinctive points in each, describe each one in a way that survives those changes, and then pair them up.</p>
+          <div class="steps">
+            <div class="step"><h4>Find distinctive points</h4><p>Corners, not flat walls or straight edges, because a corner looks different if you move in any direction.</p></div>
+            <div class="step"><h4>Describe each one</h4><p>Turn the neighbourhood around every corner into a vector of numbers.</p></div>
+            <div class="step"><h4>Match</h4><p>Pair each point with its nearest neighbour in the other image, but only keep the pair if it is clearly better than the second-best option.</p></div>
+          </div>
+        </section>
+        <section id="harris">
+          <div class="part-label">Part 1</div>
+          <h2>Finding corners with Harris</h2>
+          <p>The Harris detector looks at image gradients, how fast brightness changes left-right and up-down. Where both change strongly, there is a corner. I computed the gradients with Sobel filters, built the second-moment matrix from them, blurred it with a Gaussian and turned it into a single "cornerness" score per pixel. Non-maximum suppression, done with a max-pool, keeps only the strongest point in each neighbourhood.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/features/gradients.png" alt="Gradient magnitude of the two Notre Dame photos" loading="lazy">
+            <figcaption><b>Figure 1.</b> Gradient magnitude for both Notre Dame photos. The towers, the rose window and the arches light up; the sky stays dark.</figcaption>
+          </figure>
+          <div class="stats">
+            <div class="stat"><div class="v">~2,480</div><div class="l">corners found in each Notre Dame photo</div></div>
+            <div class="stat"><div class="v">3</div><div class="l">image pairs: Notre Dame, Rushmore, Gaudí</div></div>
+            <div class="stat"><div class="v">5.5 s</div><div class="l">to compute SIFT descriptors for one image</div></div>
+          </div>
+        </section>
+        <section id="describe">
+          <div class="part-label">Part 2</div>
+          <h2>Describing each corner</h2>
+          <p>The first descriptor was the simplest possible: take the 16×16 patch of pixels around the corner and normalise it. It works surprisingly well when the two photos are similar, but it falls apart as soon as the lighting or the viewpoint shifts, because it compares raw brightness.</p>
+          <p>So we built a SIFT-style descriptor instead. For each corner, split its neighbourhood into a 4×4 grid of cells and, in each cell, make an 8-bin histogram of gradient directions weighted by their strength. That gives a 128-number fingerprint describing the <em>shape</em> of the edges around the point rather than their brightness, normalised so a brighter photo produces the same vector.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/features/sift-points.png" alt="SIFT interest points on both Notre Dame photos" loading="lazy">
+            <figcaption><b>Figure 2.</b> The interest points we described with SIFT. The same rose window and tower details are found in both photos.</figcaption>
+          </figure>
+        </section>
+        <section id="match">
+          <div class="part-label">Part 3</div>
+          <h2>Matching, and checking the matches</h2>
+          <p>For matching I computed the distance between every descriptor in image 1 and every descriptor in image 2, then applied Lowe's ratio test: a match only counts if the nearest neighbour is clearly closer than the second-nearest. Repeated structures like rows of windows produce lots of near-ties, and the ratio test throws those away.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/features/sift-matches.png" alt="SIFT matches between the two Notre Dame photos, green for correct and red for incorrect" loading="lazy">
+            <figcaption><b>Figure 3.</b> The 100 most confident SIFT matches on Notre Dame, checked against ground truth: green is correct, red is wrong. About 83% are green.</figcaption>
+          </figure>
+          <div class="stats">
+            <div class="stat"><div class="v">~81%</div><div class="l">correct with plain normalised patches (Notre Dame)</div></div>
+            <div class="stat"><div class="v">~83%</div><div class="l">correct with our SIFT descriptor (Notre Dame)</div></div>
+            <div class="stat"><div class="v">~61%</div><div class="l">correct with SIFT on Mount Rushmore</div></div>
+          </div>
+          <div class="callout why"><h5>Where it broke</h5><p>On the Gaudí pair almost nothing matched. The two photos are at very different scales and one is much darker, and our version of SIFT was not scale- or rotation-invariant: it describes every corner at one fixed size and one fixed orientation. Real SIFT finds each point's scale and dominant direction first. Seeing that failure made it obvious why those steps exist.</p></div>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Describe shape, not brightness.</b> The jump from raw patches to gradient histograms is the whole reason modern features survive lighting changes.</li>
+            <li><b>The ratio test is cheap and powerful.</b> One line of logic removed most of the false matches from repeated windows and arches.</li>
+            <li><b>Failures explain the design.</b> The Gaudí pair failing taught me more about scale invariance than any lecture.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>interest point</dt><dd>A pixel that is easy to find again in another photo; usually a corner.</dd></div>
+            <div><dt>Harris detector</dt><dd>A corner detector based on how image gradients vary around each pixel.</dd></div>
+            <div><dt>non-maximum suppression</dt><dd>Keeping only the strongest response in each neighbourhood so corners are not counted twice.</dd></div>
+            <div><dt>descriptor</dt><dd>A vector of numbers that describes the neighbourhood of an interest point.</dd></div>
+            <div><dt>SIFT</dt><dd>Scale-Invariant Feature Transform: a descriptor built from histograms of gradient directions.</dd></div>
+            <div><dt>ratio test</dt><dd>Accept a match only if the best candidate is much closer than the second-best.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">Built with a lab partner as part of a graduate computer vision course. The pictures are outputs from our own code; the code itself stays private under the course's honor code, so the snippets here are only the few lines needed to explain an idea.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../cv-hybrid-images/index.html">← Hybrid images</a>
+      <a href="../cv-camera-geometry/index.html">Camera geometry →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=4"></script>
+</body>
+</html>

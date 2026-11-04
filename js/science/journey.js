@@ -22,6 +22,7 @@
   var world = window.SciWorld ? window.SciWorld.create(canvas) : null;
   if (!world) root.classList.add("sj-no3d");
   var CARDS = window.Timing.cards, SHOW_TO = window.Timing.science.handoff;
+  var MAP = window.SceneMap(window.Timing.science.sceneWeights); window.SceneMaps["science-journey"] = MAP;   // shares the track's scroll out by scene weight
   var sp = window.SmoothProgress ? window.SmoothProgress({ maxSpeed: 1e9, follow: CARDS.smooth.follow }) : null;   // light camera smoothing only
   // a card with data-wait="flag" stays hidden until the world's state has that flag (e.g. the data frame has filed)
   var waits = cards.map(function (c) { return c.getAttribute("data-wait"); });
@@ -49,11 +50,11 @@
   var lastP = 0, HOLD = N - 1 + window.Timing.science.data.holdAt;   // the page waits here while the data frame fills
   function update() {
     var r = root.getBoundingClientRect(), vh = window.innerHeight;
-    var p = (-r.top) / (r.height - vh) * N; p = Math.max(0, Math.min(N - 0.001, p));
+    var p = MAP.toP((-r.top) / (r.height - vh));
     root.classList.toggle("sj-pending", r.top > 0.5);   // the section overlaps the phone section's last screen: stay hidden until our stage pins
     if (world && p > HOLD && (world.state().dataHolding || (world.state().scene === 4 && !world.state().dataFiled && p > HOLD))) {
       var hb = document.documentElement.style.scrollBehavior; document.documentElement.style.scrollBehavior = "auto";
-      window.scrollTo(0, window.scrollY + r.top + (r.height - vh) * HOLD / N); document.documentElement.style.scrollBehavior = hb; p = HOLD;
+      window.scrollTo(0, window.scrollY + r.top + (r.height - vh) * MAP.toFrac(HOLD)); document.documentElement.style.scrollBehavior = hb; p = HOLD;
     }
     lastP = p;
     if (sp) sp.target(p); else apply(p, true);
@@ -63,7 +64,7 @@
   window.addEventListener("scroll", update, { passive: true });
   window.addEventListener("resize", update);
   if (sp) sp.onFrame(function (v, settled) { if (visible) apply(v, settled); });
-  dots.forEach(function (d, k) { d.addEventListener("click", function () { var r = root.getBoundingClientRect(), vh = window.innerHeight; window.scrollTo({ top: window.scrollY + r.top + (r.height - vh) * (k + 0.5) / N, behavior: "smooth" }); }); });
+  dots.forEach(function (d, k) { d.addEventListener("click", function () { var r = root.getBoundingClientRect(), vh = window.innerHeight; window.scrollTo({ top: window.scrollY + r.top + (r.height - vh) * MAP.toFrac(k + 0.5), behavior: "smooth" }); }); });
 
   // the paper card waits for an action potential to reach its terminal before it "starts";
   // the data card (data-wait) only appears once the points have filed into the frame — both are polled here

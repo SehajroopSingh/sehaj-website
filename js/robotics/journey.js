@@ -33,17 +33,36 @@
   });
 
   var current = -1, lastShown = 0, visible = false;
+  // Project Void: the page holds on the film until its window has opened and the video is showing
+  var FILM = cards.findIndex(function (c) { return c.classList.contains("rj-card--film"); }), filmShownAt = null, lastP = 0;
+  var filmCard = cards[FILM], HOLD = FILM + 0.62;
+  function filmReady() {
+    if (FILM < 0 || filmShownAt === null) return false;
+    var t = performance.now() - filmShownAt;
+    return (t > 2800 && filmCard.classList.contains("rj-film-playing")) || t > 6500;   // window open + video in; give up waiting on a slow/blocked video
+  }
+  // Drone Control: the page also pauses here for a few seconds so the drone's up-and-down PID flight can play
+  var PIDI = cards.findIndex(function (c) { return c.classList.contains("rj-card--panel"); }), pidShownAt = null, HOLD_PID = PIDI + 0.55, PID_MS = 4000;
+  // Obstacle avoidance: the forest waits at its start until the clipboard has flown off and the drone card has come in
+  var HUDI = cards.findIndex(function (c) { return c.classList.contains("rj-card--hud"); }), hudShownAt = null, HOLD_SLAM = HUDI + 0.04, SLAM_MS = 1800;
+  function hudReady() { return hudShownAt !== null && performance.now() - hudShownAt > SLAM_MS; }
+  function pidReady() { return pidShownAt !== null && performance.now() - pidShownAt > PID_MS; }
   // with the wheel pacer (js/scroll-pace.js) the page itself moves at a capped speed, so the world can follow it closely;
   // without it (touch) the smoothing is what keeps a fling from skipping scenes
   var CARDS = window.Timing.cards, SHOW_TO = window.Timing.robotics.handoff;
   var sp = window.SmoothProgress ? window.SmoothProgress({ maxSpeed: 1e9, follow: CARDS.smooth.follow }) : null;   // light camera smoothing only
   function show(i) {
     if (i === current) return;
-    cards.forEach(function (c, k) { c.classList.toggle("is-on", k === i); c.setAttribute("aria-hidden", k === i ? "false" : "true"); });
+    var prev = cards[current];
+    if (prev && current !== i) { prev.classList.add("is-leaving"); clearTimeout(prev._lt); prev._lt = setTimeout(function () { prev.classList.remove("is-leaving"); }, 620); }   // its text slides away while the next one comes in
+    cards.forEach(function (c, k) { c.classList.toggle("is-on", k === i); if (k === i) c.classList.remove("is-leaving"); c.setAttribute("aria-hidden", k === i ? "false" : "true"); });
     if (i >= 0) dots.forEach(function (d, k) { d.classList.toggle("is-on", k === i); });
     minis.forEach(function (m, k) { if (m) (k === i ? m.start() : m.stop()); });
     current = i;
     if (i >= 0) lastShown = i;
+    if (i === FILM) { if (filmShownAt === null) filmShownAt = performance.now(); } else if (i >= 0 && i < FILM) filmShownAt = null;
+    if (i === HUDI) { if (hudShownAt === null) hudShownAt = performance.now(); } else if (i >= 0 && i < HUDI) hudShownAt = null;
+    if (i === PIDI) { if (pidShownAt === null) pidShownAt = performance.now(); } else if (i >= 0 && i < PIDI) pidShownAt = null;
   }
 
   var exitCanvas = root.querySelector(".rj-exit"), exit = exitCanvas && window.RoboExit ? window.RoboExit(exitCanvas) : null;
@@ -60,6 +79,21 @@
   function update() {
     var r = root.getBoundingClientRect(), vh = window.innerHeight;
     var p = MAP.toP((-r.top) / (r.height - vh));   // scroll fraction → scene progress (scenes weighted: Timing.robotics.sceneWeights)
+    var jumping = window.__pjJumpUntil > Date.now();
+    if (HUDI >= 0 && p > HOLD_SLAM && lastP <= HOLD_SLAM + 0.02 && p < HUDI + 1.6 && !hudReady() && !jumping) {
+      var hb1 = document.documentElement.style.scrollBehavior; document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo(0, window.scrollY + r.top + (r.height - vh) * MAP.toFrac(HOLD_SLAM)); document.documentElement.style.scrollBehavior = hb1; p = HOLD_SLAM;
+    }
+    if (PIDI >= 0 && p > HOLD_PID && lastP <= HOLD_PID + 0.02 && p < PIDI + 1.6 && !pidReady() && !jumping) {
+      var hb0 = document.documentElement.style.scrollBehavior; document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo(0, window.scrollY + r.top + (r.height - vh) * MAP.toFrac(HOLD_PID)); document.documentElement.style.scrollBehavior = hb0; p = HOLD_PID;
+    }
+    if (FILM >= 0 && p > HOLD && lastP <= HOLD + 0.02 && p < N + 0.5 && !filmReady() && !(window.__pjJumpUntil > Date.now())) {
+      var hb = document.documentElement.style.scrollBehavior; document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo(0, window.scrollY + r.top + (r.height - vh) * MAP.toFrac(HOLD)); document.documentElement.style.scrollBehavior = hb; p = HOLD;
+      root.classList.add("rj-holding");
+    } else root.classList.remove("rj-holding");
+    lastP = p;
     if (sp) sp.target(p); else apply(p, true);
     var nowVisible = r.bottom > 0 && r.top < vh;
     if (nowVisible !== visible) { visible = nowVisible; if (!visible) show(-1); if (world) world.setVisible(visible); if (!visible) minis.forEach(function (m) { m && m.stop(); }); else if (minis[current]) minis[current].start(); }

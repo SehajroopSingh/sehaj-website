@@ -13,6 +13,18 @@
   var nav = document.querySelector(".pj-jump"); if (!nav) return;
   var btn = nav.querySelector(".pj-jump-btn"), menu = nav.querySelector(".pj-jump-menu"), nameEl = nav.querySelector(".pj-jump-name");
   var links = Array.prototype.slice.call(menu.querySelectorAll("a[data-track]"));
+  // split "Name · detail" into a title and a small grey line; keep the plain name for the button
+  links.forEach(function (a) {
+    var t = a.textContent.trim(), parts = t.split(" · ");
+    a.setAttribute("data-name", parts[0]);
+    a.innerHTML = '<span class="pj-t"></span>' + (parts[1] ? '<span class="pj-d"></span>' : '');
+    a.querySelector(".pj-t").textContent = parts[0]; if (parts[1]) a.querySelector(".pj-d").textContent = parts.slice(1).join(" · ");
+  });
+  Array.prototype.forEach.call(menu.querySelectorAll(".pj-nav-group"), function (g, i) {
+    g.style.setProperty("--i", i);
+    Array.prototype.forEach.call(g.querySelectorAll("a"), function (a, j) { a.style.setProperty("--j", j); });
+    var b = g.querySelector("b"); if (b) b.insertAdjacentHTML("afterbegin", "<em>" + ("0" + (i + 1)).slice(-2) + "</em>");
+  });
   var section = document.querySelector(".cf-section");
   var tracks = {};
   links.forEach(function (a) { var id = a.getAttribute("data-track"); if (!tracks[id]) tracks[id] = document.getElementById(id); });
@@ -30,6 +42,7 @@
     var map = window.SceneMaps && window.SceneMaps[a.getAttribute("data-track")];
     if (a.hasAttribute("data-idx")) { var pi = parseInt(a.getAttribute("data-idx"), 10) + 0.3; at = map ? map.toFrac(pi) : pi / parseInt(a.getAttribute("data-n"), 10); }
     else at = parseFloat(a.getAttribute("data-at"));
+    window.__pjJumpUntil = Date.now() + 2000;   // a picker jump isn't held by the Project Void pause
     window.scrollTo({ top: top + span * at, behavior: "smooth" });
   });
 
@@ -46,7 +59,7 @@
       links.forEach(function (a) {
         if (found || a.getAttribute("data-track") !== id) return;
         var rg = a.getAttribute("data-range").split("-").map(parseFloat);
-        if (p >= rg[0] && p < rg[1]) { found = a; var g = a.closest(".pj-nav-group"); label = a.hasAttribute("data-multi") && g.getAttribute("data-label") ? g.getAttribute("data-label") : a.textContent; }
+        if (p >= rg[0] && p < rg[1]) { found = a; var g = a.closest(".pj-nav-group"); label = a.hasAttribute("data-multi") && g.getAttribute("data-label") ? g.getAttribute("data-label").split(" · ")[0] : a.getAttribute("data-name"); }
       });
     });
     if (found !== current) {

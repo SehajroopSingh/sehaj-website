@@ -27,7 +27,10 @@ window.RoboScenes = (function () {
   var UP = new T.Vector3(0, 1, 0), tmpV = new T.Vector3(), tmpW = new T.Vector3();
 
   /* ---------- sky, fog, lights, visibility (every frame) ---------- */
+  // where the forest sweep ends (path = 1 in forest()): the PID hover and the launch both happen right here
+  var HOVER_X = Math.sin(3.1) * 4.5, HOVER_Z = 2 - 22;
   function stage(c, sc) {
+    if (sc !== 2) c.S.pidIn = false;
     var A = c.A, f = c.f, out = c.out, ease = c.ease, lerp = c.lerp, L = TM.launch, dt = c.dt;
     var night = sc < 3 ? 0 : sc === 3 ? ease(f / L.nightBy) : 1;
     var space = sc >= 4 ? 1 : sc === 3 ? ease((f - L.spaceFrom) / (1 - L.spaceFrom)) : 0;
@@ -103,10 +106,14 @@ window.RoboScenes = (function () {
     var err = p.goal - p.alt; p.integ += err * dt;
     var acc = P.kp * err - P.kd * p.vel + P.ki * p.integ;
     p.vel += acc * dt; p.alt += p.vel * dt;
-    c.S.droneTo.set(0, p.alt, -6); A.drone.position.lerp(c.S.droneTo, 1 - Math.exp(-dt * 5)); A.drone.rotation.set(0, 0, 0);
+    // start bobbing right where the forest sweep left the drone (no jump back): take over its height and carry on from there
+    if (!c.S.pidIn) { c.S.pidIn = true; p.alt = A.drone.position.y; p.vel = 0; p.integ = 0; p.goal = p.alt + 1.2; p.nextSwitch = c.t + P.switchMs * 0.6; }
+    var fade = 1 - Math.exp(-dt * 4);
+    c.S.droneTo.set(HOVER_X, p.alt, HOVER_Z); A.drone.position.lerp(c.S.droneTo, 1 - Math.exp(-dt * 5));
+    A.drone.rotation.set(A.drone.rotation.x * (1 - fade), A.drone.rotation.y * (1 - fade), A.drone.rotation.z * (1 - fade));   // level out gently
     c.state.alt = p.alt; c.state.goal = p.goal;
-    A.target.position.set(0, p.goal, -6);
-    c.aim(5, 3.5, 1, 0, 2.8, -6);
+    A.target.position.set(HOVER_X, p.goal, HOVER_Z);
+    c.aim(HOVER_X + 5, 3.5, HOVER_Z + 7, HOVER_X, 2.8, HOVER_Z);
     return "target " + p.goal.toFixed(2) + " m · altitude " + p.alt.toFixed(2) + " m";
   }
 
@@ -114,13 +121,13 @@ window.RoboScenes = (function () {
   function launch(c) {
     var A = c.A, S = c.S, f = c.f, dt = c.dt, ease = c.ease, lerp = c.lerp, L = TM.launch, hop = A.hop, ship = A.ship, readout;
     var k = ease(f / L.refit), up = ease((f - L.refit) / L.liftoff);
-    A.drone.position.set(0, 2.5, -6); A.drone.scale.setScalar(1 - k); A.drone.rotation.y += dt * 6 * k;
+    A.drone.position.set(HOVER_X, A.drone.position.y + (2.5 - A.drone.position.y) * (1 - Math.exp(-dt * 4)), HOVER_Z);   // ease back to cruise height from wherever the PID left it A.drone.scale.setScalar(1 - k); A.drone.rotation.y += dt * 6 * k;
     A.flame.scale.set(1, 0.8 + Math.random() * 0.6, 1); A.flame.visible = A.flameCore.visible = A.flameGlow.visible = f > L.refit && f < L.flameUntil; A.flameGlow.material.opacity = 0.6 + Math.random() * 0.4;
     // the hop sequence: the rocks from lowest to highest; the climb ends on the first one
     if (!S.rockSeq) S.rockSeq = A.rockList.slice().sort(function (p, q) { return p.m.position.y - q.m.position.y; });
     var seq = S.rockSeq, hops = Math.min(seq.length - 1, L.hops), r0 = seq[0].m.position;
     if (f < L.hopFrom) {
-      ship.position.set(lerp(0, r0.x, up), 0.2 + k * 2.3 + up * (r0.y + 0.9 - 2.5), lerp(-6, r0.z, up)); ship.scale.setScalar(Math.max(0.001, k)); ship.rotation.set(0, 0, 0);
+      ship.position.set(lerp(HOVER_X, r0.x, up), 0.2 + k * 2.3 + up * (r0.y + 0.9 - 2.5), lerp(HOVER_Z, r0.z, up)); ship.scale.setScalar(Math.max(0.001, k)); ship.rotation.set(0, 0, 0);
       hop.count = 0; hop.t = 1;
       // ride alongside the rocket: the camera sits just below and beside it and tracks it tightly, so it never leaves the frame
       var chase = ease((f - L.refit) / 0.06);

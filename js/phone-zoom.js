@@ -11,10 +11,10 @@
      0.55–0.75  the phone tilts into 3D
      0.50–0.68  two app cards pop out of the phone: Screen Time
                 first, then MemSurf to the right
-     0.78–0.98  the hand-off: the phone and Screen Time slide off
-                to the left while MemSurf grows leftward (its right
-                edge fixed) into the full card the science journey
-                then takes over on the very same box
+     0.70–1.00  the hand-off: the phone and Screen Time glide off
+                to the left while MemSurf grows and settles in the
+                centre of the screen — the full card the science
+                journey then takes over on the very same box
 
    Everything is CSS transforms set from here; the look lives in
    css/phone-zoom.css and the markup in projects.html.
@@ -31,13 +31,13 @@
 
   // where the expanded MemSurf card ends up — the science journey's first card is placed on exactly the same box
   function memsurfGeometry(vw, vh) {
-    if (vw < 760) return { w: Math.min(300, vw * 0.86), right: vw / 2 + Math.min(300, vw * 0.86) / 2, ty: 0 };
-    var right = Math.min(vw / 2 + 480, vw - 24), w = Math.min(640, right - 24);
-    return { w: w, right: right, ty: 0 };
+    var w = vw < 760 ? Math.min(300, vw * 0.86) : Math.min(1000, vw - 96);   // centred on the screen; on desktop it only grows wider (the extra text opens in a second column)
+    return { w: w, right: vw / 2 + w / 2, ty: 0 };
   }
   window.MemSurfGeometry = memsurfGeometry;
   function clamp01(x) { return Math.max(0, Math.min(1, x)); }
   function ease(x) { x = clamp01(x); return x * x * (3 - 2 * x); }
+  function smoother(x) { x = clamp01(x); return x * x * x * (x * (x * 6 - 15) + 10); }   // smootherstep: starts and ends even more gently
 
   var lastP = -1;
   var sp = window.SmoothProgress ? window.SmoothProgress({ maxSpeed: 1e9, follow: PH.smooth.follow }) : null;
@@ -55,7 +55,7 @@
     var pass = win(PH.pass);                         // screen passing over the chip
     var tilt = win(PH.tilt);
     var out = win(PH.apps);
-    var exp = win(PH.expand);                        // the hand-off: phone + Screen Time leave left, MemSurf grows into the full card
+    var exp = smoother((p - PH.expand[0]) / (PH.expand[1] - PH.expand[0]));   // the hand-off: phone + Screen Time glide off left, MemSurf grows to the centre (a softer curve than the other phases)
 
     // the phone starts scaled so its screen is exactly as wide as the view (its edges off screen) and shrinks to 1×;
     // the board shrinks by the very same factor, so the chip and its nodes always sit inside the phone's screen
@@ -77,7 +77,7 @@
       var tx = narrow ? 0 : dir * (120 + 210 * k), ty = narrow ? dir * 150 * k : -20 + 10 * i, sc = narrow ? 0.78 : 1, w = 300, tz = narrow ? 40 : 160;
       if (i === 0) {                                     // Screen Time goes off with the phone
         if (narrow) ty -= exp * (vh * 0.5 + 420); else tx -= exp * (cx + 320);
-      } else {                                           // MemSurf grows into the full card: right edge (desktop) / centre (phones) stays put
+      } else {                                           // MemSurf grows into the full card, centred on the screen
         var geo = memsurfGeometry(vw, vh);
         w = 300 + (geo.w - 300) * exp; ty = ty * (1 - exp) + geo.ty * exp; tz = tz * (1 - exp); sc = sc + (1 - sc) * exp;
         tx = narrow ? 0 : (geo.right - cx) - w / 2;

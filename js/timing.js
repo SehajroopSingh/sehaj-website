@@ -65,30 +65,37 @@ window.Timing = {
 
   /* ---------- science journey (js/science/scenes.js) ---------- */
   science: {
-    sceneWeights: [1, 1, 1, 1.4, 1.3, 1.2],   // how much of the track's scroll each scene gets (relative)
+    sceneWeights: [1, 1, 1, 2.6, 1.3, 1.2],   // how much of the track's scroll each scene gets (relative); the brain → person zoom gets the most, so it plays slowly
     handoff: 0.8,           // fraction of a scene where the hand-off to the next one begins
     cameraFollow: 3,
     neuronsFade: [0.25, 0.75],   // during the MemSurf card (scene 0) the neurons fade up into the background over this window
     neurons: { dnaSlide: 0.6, spikeChance: 0.02, terminalMs: 400 },  // the DNA slides in over the first 60% · chance per frame a spike fires · how long "just hit a terminal" lasts
     paper:   { shrink: 0.5 },                                        // the neurons shrink to this scale at the hand-off
-    zoom: {                 // neurons → brain → person → crowd (one continuous pull-back)
-      collapse: 0.32,       // neurons shrink away and the brain closes in from the edges by here
-      brainFrom: 7,         // the brain starts this many times its size (around the camera) and shrinks to 1
-      person: [0.3, 0.6],   // the person fades in over this window
-      pullBack: 0.55,       // the camera starts backing away here (to the scene's end)
-      ground: [0.3, 0.45],  // the grass fades in
-      crowd: [0.55, 0.8],   // the crowd fades in
+    zoom: {                 // neurons → drawn brain → person → crowd
+      collapse: 0.16,       // 1 · the neurons shrink to neuronsTo by here…
+      neuronsTo: 0.15,
+      brainDraw: [0.16, 0.42], // 2 · …then the pen draws the brain's outline around them…
+      brainFill: [0.4, 0.52],  // …and it fills with a soft colour behind them
+      brainRise: [0.5, 0.6],   // 3 · brain + neurons rise to where the head forms…
+      brainY: 0.55,
+      brainFrom: 7, brainScale: 1.18,   // (the old 3D brain, now hidden)
+      person: [0.55, 0.75],  // 4 · …the head forms around them (a translucent skin closing in) while the camera backs away
+      headFrom: 1.25,       // …starting this much larger than its final size
+      body: [0.62, 0.8],    // …and the body fills in below it
+      pullBack: 0.52,       // the camera starts backing away here (to the scene's end)
+      ground: [0.55, 0.7],  // the grass fades in
+      crowd: [0.75, 0.92],  // the crowd fades in
       distance: [7, 330],   // camera distance at the start / end of the pull-back
     },
     earth: {                // crowd → globe
       shrink: 0.85,         // the globe reaches its final size by here
-      crowdFade: [0.3, 0.6],
+      crowdFade: [0.48, 0.64],   // the crowd hands over to the people on the globe (overlapping, so nobody disappears)
       capFade: [0.2, 0.55], // the grass cap on the pole fades out
-      folkFade: [0.7, 0.95],// the little people all over the globe fade in
+      folkFade: [0.44, 0.58],// the little people all over the globe fade in
       spinFrom: 0.7,        // the globe starts turning
       starsFrom: 0.3,
       skyFade: [0.2, 0.82], // the sky goes from dusk to space
-      distance: [330, 86],
+      distance: [330, 62],      // ends closer, so the globe stays big and the data scene does not have to zoom back in
     },
     data: {                 // the last scene
       emerge: [0.02, 0.26], // points rise off the people and the surface (driven by the scroll)
@@ -113,7 +120,7 @@ window.Timing = {
     pass: [0.22, 0.38],     // the screen slides over the chip
     tilt: [0.38, 0.52],     // the phone turns into 3D
     apps: [0.5, 0.68],      // the two app cards pop out (Screen Time first, then MemSurf to the right)
-    expand: [0.78, 0.98],   // the phone and Screen Time slide off to the left while the MemSurf card grows leftward (its right edge fixed) into the full card
+    expand: [0.7, 1.0],     // the hand-off: the phone and Screen Time glide off to the left while the MemSurf card grows and settles in the centre of the screen (slow, smootherstep-eased)
     labels: [0.22, 0.4, 0.55],   // when the caption changes
     smooth: { follow: 7 },
   },

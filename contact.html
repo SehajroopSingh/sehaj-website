@@ -24,7 +24,7 @@
   <meta property="og:title" content="Contact | Sehaj Singh">
   <meta property="og:description" content="Get in touch with Sehaj Singh about AI engineer and forward-deployed engineer roles, collaborations or teaching.">
 
-  <link rel="stylesheet" href="css/style.css?v=39">
+  <link rel="stylesheet" href="css/style.css?v=56">
 </head>
 <body>
 
@@ -37,7 +37,6 @@
     <nav aria-label="Main navigation">
       <ul class="nav-links" id="nav-menu">
         <li><a href="index.html">Home</a></li>
-        <li><a href="about.html">About</a></li>
         <li><a href="projects.html">Projects</a></li>
         <li><a href="cv.html">CV</a></li>
         <li><a href="contact.html" aria-current="page">Contact</a></li>
@@ -46,39 +45,43 @@
   </div>
 </header>
 
+<!-- The photo background spans the contact section AND the footer, so the
+     footer reads as part of the same screen. -->
+<div class="contact-screen">
+  <div class="contact-jk-bg" aria-hidden="true">
+    <img src="images/contact-sehaj-wide.jpg" alt="">
+  </div>
+  <div class="contact-jk-wash" aria-hidden="true"></div>
+
 <main id="main">
 
-  <!-- ═══════════════════ CONTACT ═══════════════════ -->
-  <section class="hero" aria-labelledby="contact-heading">
-    <div class="container">
-      <div class="split">
+  <!-- ═══════════════════ CONTACT ═══════════════════
+       One full-screen section: the trail photo is the background (Sehaj on
+       the right, kept there by object-position), a periwinkle wash on the
+       left keeps the copy readable, and the heading, links and form sit on
+       the left. To change the photo, replace images/contact-sehaj-wide.jpg. -->
+  <section class="contact-jk" aria-labelledby="contact-heading">
 
-        <div>
-          <span class="label reveal">Contact</span>
-          <h1 id="contact-heading" class="display-xl" data-split>Let's <em class="u-draw">talk.</em></h1>
-          <p class="lede reveal" style="margin-top: 1.5rem; max-width: 44ch;">
-            Hiring for an AI engineer or forward-deployed role, trying to get AI working
-            inside your organization, or just have an interesting problem? I'd like to
-            hear about it.
-          </p>
-
-          <div class="reveal" style="margin-top: 3rem;">
-            <p class="meta" style="margin-bottom: 0.4rem;">Email</p>
-            <p style="font-family: var(--serif); font-size: 1.25rem; margin-bottom: 1.75rem;">
-              <a class="u-draw" href="mailto:sehajroop.singh@hotmail.com" style="color: var(--ink); text-decoration: none;">sehajroop.singh@hotmail.com</a>
-            </p>
-            <p class="meta" style="margin-bottom: 0.4rem;">LinkedIn</p>
-            <p style="font-family: var(--serif); font-size: 1.1rem;">
-              <a class="u-draw" href="https://www.linkedin.com/in/sehajroop-singh/" target="_blank" rel="noopener" style="color: var(--ink); text-decoration: none;">linkedin.com/in/sehajroop-singh</a>
-            </p>
-          </div>
+    <div class="container contact-jk-inner">
+      <div class="contact-jk-col">
+        <span class="jk-eyebrow slide-in-left reveal"><span class="jk-spark" aria-hidden="true">&#10035;</span> Contact</span>
+        <h1 id="contact-heading" class="jk-title slide-in-left reveal">
+          <span class="jk-title-light">Let&rsquo;s</span>
+          <span class="jk-title-bold">talk.</span>
+        </h1>
+        <p class="contact-jk-lede slide-in-left reveal">
+          Hiring, building something with AI, or just have an interesting problem? I&rsquo;d like to hear about it.
+        </p>
+        <div class="contact-jk-links slide-in-left reveal">
+          <a href="mailto:sehajroop.singh@hotmail.com"><span class="hex-tag hex-tag--yellow">Email</span><span>sehajroop.singh@hotmail.com</span></a>
+          <a href="https://www.linkedin.com/in/sehajroop-singh/" target="_blank" rel="noopener"><span class="hex-tag hex-tag--pink">LinkedIn</span><span>linkedin.com/in/sehajroop-singh</span></a>
         </div>
 
         <!-- ═══ CONTACT FORM ═══
              Choosing a topic pre-fills a suggested opening in the message box
              (fully editable — see js/main.js, section 6, to change the texts).
              Submitting opens the visitor's email app with everything filled in. -->
-        <form class="form-grid reveal-stage form-assemble" data-cascade data-contact-form aria-label="Contact form" style="align-self: start;">
+        <form class="form-grid contact-card slide-in-left reveal" data-cascade data-contact-form aria-label="Contact form">
           <div class="form-field">
             <label for="name">Name</label>
             <input type="text" id="name" name="name" autocomplete="name" required>
@@ -107,27 +110,21 @@
             <textarea id="message" name="message" required></textarea>
           </div>
           <div class="form-field--full">
-            <button class="btn btn--solid" type="submit">Start a conversation</button>
+            <button class="btn btn--solid contact-send" type="submit">Start a conversation</button>
             <p class="form-note" style="margin-top: 1rem;" data-form-status aria-live="polite">
               Sending opens your email app with the message ready to go — nothing is sent
               until you press send there.
             </p>
           </div>
         </form>
-
       </div>
     </div>
   </section>
 
-  <!-- Full-width photo band. To change it, replace images/contact-sehaj-wide.jpg -->
-  <section aria-label="Photo" style="padding: 0;">
-    <img src="images/contact-sehaj-wide.jpg" alt="Sehaj Singh on a hiking trail in autumn"
-         style="display: block; width: 100%; height: auto;">
-  </section>
-
 </main>
+</div><!-- /.contact-screen -->
 
-<footer class="site-footer">
+<footer class="site-footer site-footer--thin">
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
@@ -144,6 +141,7 @@
     <p class="footer-copy">&copy; 2026 Sehaj Singh · Set in Playfair Display &amp; DM Sans · Made in Diamond Bar, California</p>
   </div>
 </footer>
+
 
 <script src="js/main.js?v=39"></script>
 </body>

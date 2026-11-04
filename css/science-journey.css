@@ -17,7 +17,7 @@
 .sj-card .cf-open { font-size: .88rem; padding: .5rem 1.1rem; }
 
 /* 0 · MemSurf: the phone section's expanded card, on exactly the same box (see memsurfGeometry in js/phone-zoom.js) */
-.sj-card--memsurf { top: 50%; right: max(24px, calc(50% - 480px)); left: auto; width: min(640px, calc(min(50% + 480px, 100% - 24px) - 24px)); transform: translateY(-50%); transition: opacity .5s ease; padding: 0; }
+.sj-card--memsurf { top: 50%; left: 50%; width: min(640px, calc(100% - 48px)); transform: translate(-50%, -50%); transition: opacity .5s ease; padding: 0; }
 .sj-card--memsurf.is-on { transition: none; }   /* appears at once (the phone section's copy is already there underneath); fades out normally */
 .sj-card--memsurf .pz-app { position: static; transform: none; opacity: 1; width: 100%; pointer-events: auto; display: grid; }
 .sj { --sj-in: 0; }
@@ -85,7 +85,7 @@
   .sj-dots { left: 10px; top: 70px; transform: none; grid-auto-flow: column; gap: 10px; }
   .sj-dot span { display: none; }
   .sj-hint { display: none; }
-  .sj-card--memsurf { right: auto; left: 50%; width: min(300px, 86vw); transform: translate(-50%, -50%); }
+  .sj-card--memsurf { width: min(300px, 86vw); }
   .sj-card--lab, .sj-card--zoom { left: 12px; right: 12px; width: auto; }
   .sj-card--lab { bottom: 14px; }
   .sj-card--zoom { top: 100px; }
@@ -96,3 +96,35 @@
   .sj-findings li { font-size: .8rem; }
   .sj-findings li:nth-child(4) { display: none; }
 }
+
+/* ===== Autism genes paper: Kutcher style ===== */
+.sj-paper { background: #FFF8F3; color: #2A2547; border-radius: 32px; padding: 30px 34px 30px; box-shadow: 0 30px 80px -10px rgba(0,0,0,.6); }
+.sj-paper-head { align-items: center; border-bottom: 0; padding-bottom: 0; margin-bottom: 14px; color: #6B79C4; }
+.sj-paper-head .hex-tag { font-size: .66rem; padding: .45rem 1.3rem; }
+.sj-paper-pulse { color: #6B79C4; font-weight: 700; }
+.sj-card--paper h3 { font-family: var(--sans); font-weight: 800; text-transform: uppercase; letter-spacing: .01em; font-size: 1.85rem; line-height: 1.08; color: #3D4680; }
+.sj-card--paper h3 { background: linear-gradient(transparent 62%, #F3E27A 62%, #F3E27A 90%, transparent 90%); display: inline; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.sj-paper-abstract { font-family: var(--sans); font-size: 1rem; line-height: 1.6; color: #3a3560; margin-top: 16px; }
+.sj-paper-stats { gap: 12px; margin: 10px 0 20px; }
+.sj-paper-stats div { border-top: 0; padding: 14px 16px; border-radius: 20px; background: #CDEBDD; }
+.sj-paper-stats div:nth-child(2) { background: #F3E27A; } .sj-paper-stats div:nth-child(3) { background: #F0AE8F; }
+.sj-paper-stats dt { font-family: var(--sans); font-weight: 800; font-size: 1.7rem; color: #3D4680; }
+.sj-paper-stats dd { color: #3a3560; font-size: .76rem; }
+.sj-card--paper .cf-open { background: #6B79C4; color: #fff; border-radius: 999px; padding: .8rem 1.5rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: .74rem; text-decoration: none; display: inline-block; }
+.sj-card--paper .cf-open:hover { background: #3D4680; }
+@media (max-width: 760px) { .sj-paper { padding: 20px; border-radius: 22px; } .sj-card--paper h3 { font-size: 1.3rem; } .sj-paper-stats dt { font-size: 1.2rem; } .sj-paper-stats div { padding: 10px; } }
+
+.sj-card--paper p.sj-paper-abstract { color: #3a3560; opacity: 1; }
+
+/* the MemSurf card here is the same box the phone section ends on: wide, not tall */
+@media (min-width: 761px) {
+  .sj-card--memsurf { width: min(1000px, calc(100% - 96px)); }
+  .sj-card--memsurf .pz-app { position: relative; }
+}
+@media (min-width: 761px) { .sj-card--memsurf .pz-app { left: auto; top: auto; } }
+
+/* "Memory is biology" card: Kutcher style */
+.sj-card--lab { background:#FFF8F3 !important; border:0 !important; border-radius:28px !important; padding:24px 28px !important; box-shadow:0 24px 50px -10px rgba(20,24,60,.35) !important; color:#2A2547 !important; }
+.sj-card--lab .cf-kind { display:table; font-family:var(--sans); font-weight:700; font-size:.66rem; letter-spacing:.16em; text-transform:uppercase; color:#1E1E2A !important; background:#F3E27A; padding:.45rem 1.3rem; clip-path:polygon(.7rem 0,calc(100% - .7rem) 0,100% 50%,calc(100% - .7rem) 100%,.7rem 100%,0 50%); margin-bottom:12px; }
+.sj-card--lab h3 { font-family:var(--sans) !important; font-weight:800 !important; text-transform:uppercase; font-size:1.8rem !important; color:#3D4680 !important; }
+.sj-card--lab p { color:#3a3560 !important; font-size:1rem !important; }

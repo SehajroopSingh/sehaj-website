@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camera Geometry · RANSAC · Visual Odometry</title>
+  <meta name="description" content="Camera calibration, the fundamental matrix with RANSAC, and visual odometry on self-driving-car footage.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=5">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="../cv-feature-matching/index.html">SIFT</a>
+        <a class="active" href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a href="../cv-scene-recognition/index.html">Scene CNN</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Computer vision · partner project</div>
+      <h1>Camera geometry: from photos back to the 3D world</h1>
+      <p class="lede">A photo flattens the world. We worked out how to unflatten it: calibrating a camera from known points, relating two photos of the same scene, using RANSAC to ignore bad matches, and finally tracking a self-driving car's movement using nothing but its camera.</p>
+      <div class="tags"><span class="tag">Python</span><span class="tag">NumPy</span><span class="tag">linear algebra</span><span class="tag">RANSAC</span><span class="tag">Argoverse</span><span class="tag">~7 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">The problem</a></li>
+            <li><a href="#camera">Part 1 · Calibrating a camera</a></li>
+            <li><a href="#fundamental">Part 2 · Two views</a></li>
+            <li><a href="#ransac">Part 3 · RANSAC</a></li>
+            <li><a href="#vo">Part 4 · Visual odometry</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Built:</strong> the geometry that links 3D scenes to 2D photos: a camera projection matrix fitted from known points, the fundamental matrix that ties two views together, and RANSAC to estimate it from messy, partly wrong matches.</li>
+              <li><strong>Applied it to:</strong> a lab scene with measured markers, landmark photos, and real self-driving-car footage from Argoverse, ending with visual odometry: tracking how the car moved using only its camera.</li>
+              <li><strong>Result:</strong> recovered the camera's position in the lab and on the car (about 1.4 m off the ground, as you would expect), clean epipolar geometry once RANSAC was in, and a smooth turning trajectory for the car.</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>From pictures back to the 3D world</h2>
+          <p>A photo flattens the world: every 3D point lands on one 2D pixel. If you know <em>how</em> the camera flattens things, you can run that backwards: work out where the camera was, relate two photos of the same scene, and eventually track a robot or a car as it moves. This project builds those pieces one at a time.</p>
+        </section>
+        <section id="camera">
+          <div class="part-label">Part 1</div>
+          <h2>Calibrating a camera</h2>
+          <p>The camera's projection is captured by a single 3×4 matrix that maps a 3D point to a 2D pixel. Given pairs of known 3D points and where they appear in the image, each pair gives two linear equations, and with enough of them I solved for the matrix with least squares. From the matrix you can read off where the camera itself sits in the world.</p>
+          <figure class="diagram">
+            <div class="fig-row"><div><img src="../../../images/cv/geometry/lab.png" alt="Lab scene with measured markers" loading="lazy"><span>The lab scene</span></div><div><img src="../../../images/cv/geometry/projection.png" alt="Actual vs projected marker positions" loading="lazy"><span>Measured points (red) vs. my projection (green)</span></div></div>
+            <figcaption><b>Figure 1.</b> Fitting the projection matrix. Once it is right, projecting the known 3D points lands them on top of where they really appear.</figcaption>
+          </figure>
+          <p>We then did the same for a camera mounted on an Argoverse self-driving car, using points from its lidar. The recovered camera sits about 1.65 m ahead of the car's reference point and about 1.42 m above the ground, which is exactly where a roof-mounted camera should be. That sanity check was more convincing than any unit test.</p>
+        </section>
+        <section id="fundamental">
+          <div class="part-label">Part 2</div>
+          <h2>Relating two views</h2>
+          <p>With two photos of the same scene, every point in the first image must lie somewhere on a specific line in the second: its <em>epipolar line</em>. The fundamental matrix encodes that relationship. I estimated it with the eight-point algorithm, normalising the coordinates first (centring them and scaling them to a similar size), which makes the estimate far more stable.</p>
+          <div class="callout"><h5>Why normalise?</h5><p>Pixel coordinates are in the hundreds while the equations also involve 1s. Without normalising, the least-squares problem is badly conditioned and small errors in the matches swing the result wildly. Centring and scaling the points fixes it in a few lines.</p></div>
+        </section>
+        <section id="ransac">
+          <div class="part-label">Part 3</div>
+          <h2>RANSAC: ignoring the bad matches</h2>
+          <p>Real matches from SIFT are never all correct, and a handful of wrong ones is enough to ruin a least-squares fit. RANSAC handles that by repeatedly picking a tiny random sample of matches, fitting a model to just those, and counting how many of all the other matches agree. The model with the most agreement wins, and the outliers are simply ignored.</p>
+          <pre class="code"><span class="c"># iterations needed to hit a clean sample with high confidence</span>
+k = log(1 - p_success) / log(1 - inlier_ratio ** sample_size)</pre>
+          <figure class="diagram">
+            <img src="../../../images/cv/geometry/epipolar-ransac.png" alt="Epipolar lines on Notre Dame after RANSAC" loading="lazy">
+            <figcaption><b>Figure 2.</b> Notre Dame after RANSAC. The epipolar lines converge on a single point, the epipole, which is where the other camera sits. With plain least squares they did not.</figcaption>
+          </figure>
+          <figure class="diagram">
+            <div class="fig-row"><div><img src="../../../images/cv/geometry/argo-no-ransac.png" alt="Argoverse epipolar lines without RANSAC" loading="lazy"><span>Without RANSAC</span></div><div><img src="../../../images/cv/geometry/argo-ransac.png" alt="Argoverse epipolar lines with RANSAC" loading="lazy"><span>With RANSAC</span></div></div>
+            <figcaption><b>Figure 3.</b> The same comparison on Argoverse driving frames. Without RANSAC the lines are a mess; with it they meet where the car is heading.</figcaption>
+          </figure>
+        </section>
+        <section id="vo">
+          <div class="part-label">Part 4</div>
+          <h2>Visual odometry: tracking a car with its camera</h2>
+          <p>Put the pieces together and you can follow a moving camera. For each pair of consecutive frames from the car: match features, estimate the fundamental matrix with RANSAC, combine it with the camera's known intrinsics to get the essential matrix, and decompose that into the rotation and direction of travel between the two frames. Chain those small motions together and you get the car's path.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/geometry/trajectory.png" alt="Estimated trajectory of the car from its camera" loading="lazy">
+            <figcaption><b>Figure 4.</b> The car's path, estimated from nothing but its camera. It drives forward and swings into a turn, matching what you see in the video frames.</figcaption>
+          </figure>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Geometry is the backbone of perception.</b> Every self-driving and robotics stack I have seen since leans on these same matrices.</li>
+            <li><b>Robustness beats precision.</b> A careful least-squares fit on bad data loses to a rough fit that knows which data to ignore.</li>
+            <li><b>Sanity-check against the physical world.</b> A camera 1.4 m off the ground told me the code worked better than any test case did.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>projection matrix</dt><dd>A 3×4 matrix that maps 3D world points to 2D pixels for one camera.</dd></div>
+            <div><dt>fundamental matrix</dt><dd>A 3×3 matrix relating two views: it maps a point in one image to a line in the other.</dd></div>
+            <div><dt>epipolar line / epipole</dt><dd>The line a point must lie on in the other view; all of them meet at the epipole, the other camera's image.</dd></div>
+            <div><dt>RANSAC</dt><dd>Random sample consensus: fit to small random samples and keep the model most of the data agrees with.</dd></div>
+            <div><dt>visual odometry</dt><dd>Estimating a camera's own motion from the sequence of images it captures.</dd></div>
+            <div><dt>Argoverse</dt><dd>A public self-driving-car dataset with camera images, lidar and calibration.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">Built with a lab partner as part of a graduate computer vision course. The pictures are outputs from our own code; the code itself stays private under the course's honor code, so the snippets here are only the few lines needed to explain an idea.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../cv-feature-matching/index.html">← Feature matching</a>
+      <a href="../cv-scene-recognition/index.html">Scene recognition →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=4"></script>
+</body>
+</html>

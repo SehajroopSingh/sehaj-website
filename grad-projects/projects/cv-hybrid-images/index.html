@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hybrid Images · Image Filtering</title>
+  <meta name="description" content="Convolution written from scratch in NumPy and PyTorch, used to make hybrid images that change as you step back.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=5">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a class="active" href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="../cv-feature-matching/index.html">SIFT</a>
+        <a href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a href="../cv-scene-recognition/index.html">Scene CNN</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Computer vision · partner project</div>
+      <h1>Hybrid images: one picture up close, another from afar</h1>
+      <p class="lede">I wrote image convolution from scratch, first as a plain NumPy loop and then as a PyTorch model, and used it to blend the blurry shapes of one photo with the sharp edges of another. The result is a single image that changes what it shows depending on how far away you stand.</p>
+      <div class="tags"><span class="tag">Python</span><span class="tag">NumPy</span><span class="tag">PyTorch</span><span class="tag">convolution</span><span class="tag">Gaussian filters</span><span class="tag">~5 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">Two pictures in one</a></li>
+            <li><a href="#filter">Part 1 · Convolution by hand</a></li>
+            <li><a href="#hybrid">Part 2 · Making the hybrids</a></li>
+            <li><a href="#pytorch">Part 3 · PyTorch</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Built:</strong> a convolution engine from scratch (first in NumPy, then in PyTorch) and used it to make <em>hybrid images</em>: pictures that read as one thing up close and another from across the room.</li>
+              <li><strong>How:</strong> keep only the blurry, low-frequency part of one photo, only the sharp edges of another, and add them together.</li>
+              <li><strong>Result:</strong> five hybrids (dog → cat, bicycle → motorcycle, bird → plane, Marilyn → Einstein, fish → submarine). The PyTorch version made them about 3.5× faster than my hand-written loop.</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>Two pictures in one</h2>
+          <p>Your eye reads fine detail when it is close to a picture and only the broad shapes when it is far away. A hybrid image exploits that: up close you see the sharp edges of one image, and as you step back (or the picture shrinks) those edges disappear and a second, blurrier image takes over.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/filtering/hybrid_image_scales.jpg" alt="The fish/submarine hybrid shown at shrinking sizes; the fish dominates large, the submarine small." loading="lazy">
+            <figcaption><b>Figure 1.</b> The same hybrid at shrinking sizes. Big, it is a fish. Small, the fish's edges vanish and the submarine underneath takes over.</figcaption>
+          </figure>
+        </section>
+        <section id="filter">
+          <div class="part-label">Part 1</div>
+          <h2>Writing convolution by hand</h2>
+          <p>Everything here runs on one operation: sliding a small grid of weights (a <em>filter</em> or <em>kernel</em>) across the image and replacing every pixel with the weighted sum of its neighbours. I wrote that from scratch in NumPy: pad the image so the filter fits at the borders, then loop over every pixel and every colour channel.</p>
+          <div class="steps">
+            <div class="step"><h4>Build a Gaussian kernel</h4><p>A 2D bell curve, built as the outer product of two 1D Gaussians and normalised to sum to 1, so blurring never brightens or darkens the image.</p></div>
+            <div class="step"><h4>Pad, then slide</h4><p>Zero-pad by half the kernel size on each side so the output is the same size as the input, then take the weighted sum at every position.</p></div>
+            <div class="step"><h4>Test it on known filters</h4><p>An identity filter should change nothing, a box filter should blur, a Sobel filter should light up vertical edges and a Laplacian should keep only fine detail. All four behaved, which is how I knew the convolution was right.</p></div>
+          </div>
+          <figure class="diagram">
+            <div class="fig-row"><div><img src="../../../images/cv/filtering/blur_image.jpg" alt="blurred fish" loading="lazy"><span>Box blur</span></div><div><img src="../../../images/cv/filtering/sobel_image.jpg" alt="Sobel edges of the fish" loading="lazy"><span>Sobel (edges)</span></div><div><img src="../../../images/cv/filtering/laplacian_image.jpg" alt="Laplacian of the fish" loading="lazy"><span>Laplacian (detail)</span></div></div>
+            <figcaption><b>Figure 2.</b> My convolution with three classic filters. Same code, different 3×3 weights.</figcaption>
+          </figure>
+        </section>
+        <section id="hybrid">
+          <div class="part-label">Part 2</div>
+          <h2>Making the hybrids</h2>
+          <p>A hybrid is two filtering operations and an addition. Blur image A with a Gaussian to keep its low frequencies. Blur image B the same way and <em>subtract</em> that from B, which leaves only its high frequencies. Add the two and clip back into the valid pixel range.</p>
+          <pre class="code">low  = conv2d(image_a, gaussian)          <span class="c"># broad shapes of A</span>
+high = image_b - conv2d(image_b, gaussian) <span class="c"># edges of B</span>
+hybrid = clip(low + high, 0, 1)</pre>
+          <p>The one real decision is the <em>cutoff frequency</em>, the width of the Gaussian. Too small and image A bleeds through up close; too large and image B never appears. Most pairs worked at a cutoff of 7; Marilyn and Einstein needed 13 and the fish and submarine only 3, because their outlines were so different in size.</p>
+          <figure class="diagram">
+            <div class="fig-row"><div><img src="../../../images/cv/filtering/low-0.jpg" alt="low frequencies of the dog" loading="lazy"><span>Low frequencies (dog)</span></div><div><img src="../../../images/cv/filtering/high-0.jpg" alt="high frequencies of the cat" loading="lazy"><span>High frequencies (cat)</span></div><div><img src="../../../images/cv/filtering/hybrid-0.jpg" alt="dog-cat hybrid" loading="lazy"><span>The hybrid</span></div></div>
+            <figcaption><b>Figure 3.</b> Dog blurred + cat edges = an image that is a cat up close and a dog from a distance.</figcaption>
+          </figure>
+          <figure class="diagram">
+            <div class="fig-row"><div><img src="../../../images/cv/filtering/hybrid-1.jpg" alt="bicycle-motorcycle hybrid" loading="lazy"><span>Bicycle / motorcycle</span></div><div><img src="../../../images/cv/filtering/hybrid-2.jpg" alt="bird-plane hybrid" loading="lazy"><span>Bird / plane</span></div><div><img src="../../../images/cv/filtering/hybrid-3.jpg" alt="Marilyn-Einstein hybrid" loading="lazy"><span>Marilyn / Einstein</span></div></div>
+            <figcaption><b>Figure 4.</b> Three more pairs. Squint, or step back from your screen, to see the second image.</figcaption>
+          </figure>
+        </section>
+        <section id="pytorch">
+          <div class="part-label">Part 3</div>
+          <h2>Doing it again in PyTorch</h2>
+          <p>Then we rebuilt the same pipeline as a PyTorch model and dataset: the Gaussian becomes a fixed convolution layer and the images are loaded as tensors in batches. Same pictures out, far less waiting.</p>
+          <div class="stats">
+            <div class="stat"><div class="v">13.9 s</div><div class="l">my NumPy loop, five hybrids</div></div>
+            <div class="stat"><div class="v">3.9 s</div><div class="l">the PyTorch version</div></div>
+            <div class="stat"><div class="v">~3.5×</div><div class="l">faster, with no change to the result</div></div>
+          </div>
+          <p>The last part was making sure I really understood PyTorch's conventions: how stride and padding change the output size (a 3×3 filter on a 5×5 image gives 3×3 with no padding, 5×5 with one pixel of padding) and how a bank of 12 filters turns a 3-channel image into 12 feature maps. Those shape rules come back in every deep-learning project after this one.</p>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Test with filters you can predict.</b> An identity filter that changes nothing is the fastest bug detector there is.</li>
+            <li><b>Loops are for understanding, libraries are for running.</b> Writing convolution by hand taught me what it is; PyTorch made it 3.5× faster in a handful of lines.</li>
+            <li><b>One parameter can be the whole craft.</b> The algorithm took an afternoon. Choosing a cutoff per image pair is what made the hybrids actually work.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>convolution</dt><dd>Sliding a small weight grid over an image and taking a weighted sum at every position.</dd></div>
+            <div><dt>Gaussian kernel</dt><dd>A bell-shaped filter that blurs smoothly; its width sets how much detail is removed.</dd></div>
+            <div><dt>low / high frequencies</dt><dd>Broad, slowly-changing shapes vs. sharp edges and fine texture.</dd></div>
+            <div><dt>cutoff frequency</dt><dd>How wide the Gaussian is: where "low" ends and "high" begins.</dd></div>
+            <div><dt>Sobel / Laplacian</dt><dd>Classic edge filters: Sobel finds edges in one direction, the Laplacian finds fine detail in all directions.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">Built with a lab partner as part of a graduate computer vision course. The pictures are outputs from our own code; the code itself stays private under the course's honor code, so the snippets here are only the few lines needed to explain an idea.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../world-dataset-education/index.html">← World data</a>
+      <a href="../cv-feature-matching/index.html">Feature matching →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=4"></script>
+</body>
+</html>

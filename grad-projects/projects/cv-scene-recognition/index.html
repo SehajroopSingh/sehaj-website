@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scene Recognition · Deep Learning</title>
+  <meta name="description" content="A scene classifier for 15 categories: a CNN from scratch, an improved version, and a fine-tuned ResNet-18 at about 89% accuracy.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=5">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="../cv-feature-matching/index.html">SIFT</a>
+        <a href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a class="active" href="../cv-scene-recognition/index.html">Scene CNN</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Computer vision · partner project</div>
+      <h1>Scene recognition: from 42% to 89%</h1>
+      <p class="lede">We trained a network to tell what kind of place a photo shows, from kitchens to coastlines. First a small CNN written from scratch, then the same network improved one change at a time, and finally a pretrained ResNet fine-tuned for our 15 classes, which more than doubled the accuracy we started with.</p>
+      <div class="tags"><span class="tag">Python</span><span class="tag">PyTorch</span><span class="tag">CNNs</span><span class="tag">ResNet-18</span><span class="tag">transfer learning</span><span class="tag">~6 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">The problem</a></li>
+            <li><a href="#simple">Part 1 · A CNN from scratch</a></li>
+            <li><a href="#final">Part 2 · Making it generalise</a></li>
+            <li><a href="#resnet">Part 3 · Fine-tuning ResNet</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Built:</strong> an image classifier that sorts photos into 15 kinds of scene (kitchen, forest, highway, office…), in three rounds: a small CNN from scratch, an improved version of it, and a fine-tuned ResNet-18.</li>
+              <li><strong>Improved it by:</strong> adding data augmentation, normalising the inputs, dropout, more layers and batch normalisation, measuring each change on its own.</li>
+              <li><strong>Result:</strong> validation accuracy went from about 42% with the first network to about 60% with the improved one, and to about 89% by fine-tuning a pretrained ResNet.</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>Fifteen kinds of place</h2>
+          <p>The task: given a photo, say what kind of place it is. The dataset has 15 categories, from bedrooms and kitchens to coasts, forests and tall buildings, with a few thousand mostly greyscale photos to learn from. It is small enough that a network can easily memorise it, which made it a good place to learn what actually helps a model generalise.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/scenes/dataset.png" alt="Example photos from the 15 scene categories" loading="lazy">
+            <figcaption><b>Figure 1.</b> A few examples from each of the 15 categories. Some are easy (forest, coast); some are genuinely confusable (bedroom vs. living room, industrial vs. store).</figcaption>
+          </figure>
+        </section>
+        <section id="simple">
+          <div class="part-label">Part 1</div>
+          <h2>A small CNN from scratch</h2>
+          <p>First we built the whole training loop ourselves: an image loader, the data transforms, a small convolutional network (two convolution blocks and two fully connected layers, about 57,000 parameters), the loss, the optimiser and the trainer that tracks loss and accuracy on both the training and validation sets.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/scenes/simplenet-acc.png" alt="Training and validation accuracy for the first CNN" loading="lazy">
+            <figcaption><b>Figure 2.</b> The first network. It learns, but validation accuracy stalls around 42% while training accuracy keeps climbing: it is starting to memorise rather than generalise.</figcaption>
+          </figure>
+        </section>
+        <section id="final">
+          <div class="part-label">Part 2</div>
+          <h2>Making it generalise</h2>
+          <p>Then we attacked the gap between training and validation accuracy one change at a time, keeping each change and measuring what it did.</p>
+          <div class="steps">
+            <div class="step"><h4>Jitter the data</h4><p>Random horizontal flips, colour jitter and random crops, so every epoch sees slightly different versions of each photo. Not enough training data is the root problem, so this is the first fix.</p></div>
+            <div class="step"><h4>Normalise the inputs</h4><p>Subtract the dataset mean and divide by its standard deviation so every input has a similar scale. This was the single biggest jump.</p></div>
+            <div class="step"><h4>Dropout</h4><p>Randomly switching off units during training so the network cannot rely on any one feature.</p></div>
+            <div class="step"><h4>Go deeper</h4><p>Four convolution layers instead of two, with wider filter banks (up to 128 filters per layer).</p></div>
+            <div class="step"><h4>Batch normalisation</h4><p>Re-centring the activations after each layer, which made training faster and steadier.</p></div>
+          </div>
+          <figure class="diagram">
+            <img src="../../../images/cv/scenes/final-acc.png" alt="Training and validation accuracy for the improved CNN" loading="lazy">
+            <figcaption><b>Figure 3.</b> The improved network. Validation accuracy now reaches about 60%, and the two curves stay much closer together.</figcaption>
+          </figure>
+          <div class="stats">
+            <div class="stat"><div class="v">~42%</div><div class="l">validation accuracy, first CNN</div></div>
+            <div class="stat"><div class="v">~60%</div><div class="l">after augmentation, normalisation, dropout, depth and batch norm</div></div>
+            <div class="stat"><div class="v">2 → 4</div><div class="l">convolution layers, from the first network to the improved one</div></div>
+          </div>
+        </section>
+        <section id="resnet">
+          <div class="part-label">Part 3</div>
+          <h2>Standing on a pretrained network</h2>
+          <p>Finally, transfer learning. Instead of learning from a few thousand photos, we started from ResNet-18, already trained on millions of everyday images, froze its convolutional layers and replaced only the final layer with one that outputs our 15 scene classes. Only that small head is trained.</p>
+          <figure class="diagram">
+            <img src="../../../images/cv/scenes/resnet-acc.png" alt="Training and validation accuracy for the fine-tuned ResNet" loading="lazy">
+            <figcaption><b>Figure 4.</b> Fine-tuning ResNet-18. It starts above 80% after a single epoch and settles around 89% on validation.</figcaption>
+          </figure>
+          <figure class="diagram">
+            <img src="../../../images/cv/scenes/confusion.png" alt="Confusion matrix for the fine-tuned ResNet across 15 classes" loading="lazy">
+            <figcaption><b>Figure 5.</b> Where it still goes wrong. The confusion matrix is almost a clean diagonal; the remaining mistakes are the ones a person might make too, mostly bedrooms called living rooms.</figcaption>
+          </figure>
+          <div class="stats">
+            <div class="stat"><div class="v">~89%</div><div class="l">validation accuracy with fine-tuned ResNet-18</div></div>
+            <div class="stat"><div class="v">5</div><div class="l">epochs of training needed</div></div>
+            <div class="stat"><div class="v">15</div><div class="l">scene categories</div></div>
+          </div>
+          <div class="callout why"><h5>Why freezing works</h5><p>The early layers of a network trained on millions of photos already detect edges, textures and object parts. Those are useful for almost any image task, so there is no need to relearn them from a small dataset. Freezing them also means far fewer parameters to train, which is faster and much harder to overfit.</p></div>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Change one thing at a time.</b> Measuring each improvement separately showed that input normalisation mattered far more than adding depth.</li>
+            <li><b>Watch the gap, not just the score.</b> The distance between training and validation accuracy told me more than either number alone.</li>
+            <li><b>Do not start from zero if you do not have to.</b> A pretrained network beat everything we built by hand by almost 30 points in a handful of epochs. That is the lesson I use most in real AI work.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>CNN</dt><dd>Convolutional neural network: layers of learned filters followed by a classifier.</dd></div>
+            <div><dt>data augmentation</dt><dd>Randomly altering training images (flips, colour jitter) so the model sees more variety.</dd></div>
+            <div><dt>dropout</dt><dd>Randomly disabling units during training to stop the network relying on any one of them.</dd></div>
+            <div><dt>batch normalisation</dt><dd>Normalising each layer's outputs during training to keep them well-scaled.</dd></div>
+            <div><dt>transfer learning / fine-tuning</dt><dd>Starting from a network trained on a large dataset and retraining only part of it for a new task.</dd></div>
+            <div><dt>confusion matrix</dt><dd>A table of predicted vs. true classes; the diagonal is what the model gets right.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">Built with a lab partner as part of a graduate computer vision course. The pictures are outputs from our own code; the code itself stays private under the course's honor code, so the snippets here are only the few lines needed to explain an idea.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../cv-camera-geometry/index.html">← Camera geometry</a>
+      <a href="../../../projects.html">All projects →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=4"></script>
+</body>
+</html>

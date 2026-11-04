@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/kutcher.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -26,6 +28,10 @@
         <a href="projects/unity-video-game-design/index.html">Unity</a>
         <a href="projects/bioinformatics-autism-genes/index.html">Autism genes</a>
         <a href="projects/world-dataset-education/index.html">World data</a>
+        <a href="projects/cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="projects/cv-feature-matching/index.html">SIFT</a>
+        <a href="projects/cv-camera-geometry/index.html">RANSAC</a>
+        <a href="projects/cv-scene-recognition/index.html">Scene CNN</a>
       </nav>
     </div>
   </header>
@@ -34,7 +40,7 @@
     <section class="hero">
       <div class="eyebrow">Graduate coursework · Computer Science &amp; Bioinformatics</div>
       <h1>Robots, kernels, phones and games</h1>
-      <p class="lede">Twelve projects from seven courses. The robotics ones are rebuilt as live demos you can play with in the browser; the rest are walkthroughs that explain what was built and why, with diagrams and real results where I have them.</p>
+      <p class="lede">Sixteen projects from eight courses. The robotics ones are rebuilt as live demos you can play with in the browser; the rest are walkthroughs that explain what was built and why, with diagrams and real results where I have them.</p>
       <div class="note">The demos are new JavaScript rebuilds written for this site, and the walkthroughs are my own summaries with diagrams made for the page. Original course solutions stay private under the Georgia Tech honor code.</div>
     </section>
 
@@ -122,6 +128,34 @@
         <div class="tags"><span class="tag">Python</span><span class="tag">Biopython</span><span class="tag">STRING</span><span class="tag">networkx</span></div>
       </a>
     </section>
+    <h2 class="section-title">Computer vision</h2>
+    <section class="cards">
+      <a class="card" href="projects/cv-hybrid-images/index.html">
+        <div class="num">13 · Filtering</div>
+        <h2>Hybrid Images</h2>
+        <p>Convolution written from scratch, then used to blend two photos into one that changes as you step back.</p>
+        <div class="tags"><span class="tag">NumPy</span><span class="tag">PyTorch</span><span class="tag">convolution</span></div>
+      </a>
+      <a class="card" href="projects/cv-feature-matching/index.html">
+        <div class="num">14 · Features</div>
+        <h2>Feature Matching</h2>
+        <p>Harris corners, a SIFT-style descriptor and a ratio-test matcher on Notre Dame, Mount Rushmore and Gaudí.</p>
+        <div class="tags"><span class="tag">Harris</span><span class="tag">SIFT</span></div>
+      </a>
+      <a class="card" href="projects/cv-camera-geometry/index.html">
+        <div class="num">15 · Geometry</div>
+        <h2>Camera Geometry</h2>
+        <p>Camera calibration, the fundamental matrix with RANSAC, and visual odometry on self-driving-car footage.</p>
+        <div class="tags"><span class="tag">RANSAC</span><span class="tag">Argoverse</span></div>
+      </a>
+      <a class="card" href="projects/cv-scene-recognition/index.html">
+        <div class="num">16 · Deep learning</div>
+        <h2>Scene Recognition</h2>
+        <p>15 scene classes: a CNN from scratch, improved one change at a time, then a fine-tuned ResNet-18 at about 89%.</p>
+        <div class="tags"><span class="tag">PyTorch</span><span class="tag">ResNet-18</span></div>
+      </a>
+    </section>
   </main>
+<script src="shared/kutcher.js?v=4"></script>
 </body>
 </html>

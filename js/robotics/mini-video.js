@@ -26,6 +26,7 @@ window.RoboMini.video = function (el) {
       events: {
         onReady: function () { ready = true; if (wanted) play(); },
         onStateChange: function (e) {
+          if (e.data === YT.PlayerState.PLAYING) card.classList.add("rj-film-playing");
           if (e.data === YT.PlayerState.PLAYING && !timer) {
             timer = setTimeout(function () { try { player.pauseVideo(); } catch (x) {} card.classList.add("rj-film-paused"); }, seconds * 1000);
           }

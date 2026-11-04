@@ -296,7 +296,7 @@
     }
 
     // nodes pop in once the traces reach the edges
-    if (on > (reduce ? 0 : 1.35) && !root.classList.contains("osb-nodes-on")) root.classList.add("osb-nodes-on");
+    if (on > (reduce ? 0 : 1.35) && !root.classList.contains("osb-nodes-on")) { root.classList.add("osb-nodes-on"); nodesSeenAt = performance.now(); }
     if (on > 0.3 && !root.classList.contains("osb-powered")) root.classList.add("osb-powered");
   }
 
@@ -354,8 +354,19 @@
   }, { threshold: [0, 0.4, 0.85] }).observe(root);
   // the intro is driven by the first stretch of the pinned track's scroll; the board powers on the moment it completes
   var wrap = root.parentElement;
+  // the page holds just after the intro until the board has powered on and all three project nodes have popped in
+  var lastP = 0, HOLD = IN.share + 0.002, nodesSeenAt = null;
+  function boardReady() {
+    if (root.classList.contains("osb-nodes-on") && nodesSeenAt === null) nodesSeenAt = performance.now();
+    return nodesSeenAt !== null && performance.now() - nodesSeenAt > 1000;   // + the staggered pop of the last node
+  }
   function trackIntro() {
-    var r = wrap.getBoundingClientRect(), vh = window.innerHeight, p = (-r.top) / (r.height - vh);
+    var r = wrap.getBoundingClientRect(), vh = window.innerHeight, span = r.height - vh, p = (-r.top) / span;
+    if (p > HOLD && lastP <= HOLD + 0.01 && p < 0.6 && !boardReady() && !(window.__pjJumpUntil > Date.now())) {
+      var hb = document.documentElement.style.scrollBehavior; document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo(0, window.scrollY + r.top + span * HOLD); document.documentElement.style.scrollBehavior = hb; p = HOLD;
+    }
+    lastP = p;
     introK = Math.max(0, Math.min(1, p / IN.share));
     if (introK >= 1 && powerAt === null) powerAt = performance.now();
   }
