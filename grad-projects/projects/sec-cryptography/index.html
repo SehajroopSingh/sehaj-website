@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cryptography · Breaking Weak RSA</title>
+  <meta name="description" content="Attacks on weak RSA deployments in Python: small keys, shared primes, close primes and small exponents.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+  </defs></svg>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="../cv-feature-matching/index.html">SIFT</a>
+        <a href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a href="../cv-scene-recognition/index.html">Scene CNN</a>
+        <a href="../sec-ml-malware/index.html">ML security</a>
+        <a href="../sec-network-mitm/index.html">MITM</a>
+        <a href="../sec-binary-exploitation/index.html">Buffer overflow</a>
+        <a class="active" href="../sec-cryptography/index.html">RSA</a>
+        <a href="../sec-web-security/index.html">XSS/CSRF</a>
+        <a href="../sec-database-security/index.html">SQL injection</a>
+        <a href="../sec-api-security/index.html">API security</a>
+        <a href="../sec-log4shell/index.html">Log4Shell</a>
+        <a href="../sec-malware-analysis/index.html">Malware</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Information security · lab project</div>
+      <h1>Cryptography: when correct maths meets bad choices</h1>
+      <p class="lede">RSA is mathematically sound, yet real systems keep breaking it. I implemented RSA from first principles and then the classic attacks on weak deployments, which made it very clear that crypto fails in the details, not the theory.</p>
+      <div class="tags"><span class="tag">Python</span><span class="tag">RSA</span><span class="tag">number theory</span><span class="tag">cryptanalysis</span><span class="tag">~5 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">Why it matters</a></li>
+            <li><a href="#work">The attacks</a></li>
+            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Did:</strong> attacks on deliberately weak RSA setups in Python, showing that the maths of RSA can be perfect while the way it is used is broken.</li>
+              <li><strong>Covered:</strong> how RSA works from first principles (primes, modular arithmetic, key generation) and the classic implementation mistakes: keys that are too small, primes reused or chosen badly, and exponents that are too small for the message.</li>
+              <li><strong>Learned:</strong> why "don't roll your own crypto" is real advice, and how much security rests on details like how primes are generated.</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>RSA in one paragraph</h2>
+          <p>RSA picks two large secret primes, multiplies them into a public modulus, and derives a public and a private exponent from them. Anyone can encrypt with the public key; only the holder of the primes can decrypt. Its security rests on one assumption: that factoring the modulus back into its primes is infeasible. Every attack in this project is a way that assumption quietly stops being true.</p>
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 906 120" role="img" aria-label="Pick primes then Modulus then Keys then Encrypt then Decrypt"><rect class="d-box mine" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Pick primes</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">p and q, secret</text><path class="d-line" d="M162,60 L190,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Modulus</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">n = p × q</text><path class="d-line accent" d="M346,60 L374,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Keys</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">public e, private d</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Encrypt</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">with (n, e)</text><path class="d-line" d="M714,60 L742,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="746" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="821.0" y="54" text-anchor="middle">Decrypt</text><text class="d-text small" x="821.0" y="74" text-anchor="middle">with d</text></svg></div>
+            <figcaption><b>Figure 1.</b> RSA key generation and use. The highlighted steps are where real-world mistakes creep in.</figcaption>
+          </figure>
+        </section>
+        <section id="work">
+          <div class="part-label">The attacks</div>
+          <h2>Where good maths meets bad choices</h2>
+          <div class="steps">
+            <div class="step"><h4>Keys that are too small</h4><p>A modulus short enough can simply be factored with ordinary computing power, and once you have the primes you have the private key.</p></div>
+            <div class="step"><h4>Primes shared between keys</h4><p>If two different public keys accidentally share a prime, a single greatest-common-divisor computation reveals it, and both keys fall. This has happened at internet scale with badly seeded devices.</p></div>
+            <div class="step"><h4>Primes too close together</h4><p>If p and q are nearly equal, Fermat's factorisation method finds them quickly from the square root of the modulus.</p></div>
+            <div class="step"><h4>Exponents and messages that are too small</h4><p>With a tiny public exponent and no padding, some messages can be recovered with nothing more than an integer root.</p></div>
+          </div>
+          <div class="callout why"><h5>The pattern</h5><p>None of these attacks break RSA itself. They exploit the gap between the textbook algorithm and a real deployment: randomness, key sizes, padding. That gap is where most real cryptographic failures live.</p></div>
+        </section>
+        <section id="defend">
+          <div class="part-label">Defence</div>
+          <h2>How to defend against it</h2>
+          <dl class="gloss">
+            <div><dt>Use vetted libraries</dt><dd>Let well-reviewed libraries generate keys and handle padding; never implement the primitives yourself.</dd></div>
+            <div><dt>Modern parameters</dt><dd>2048-bit or larger RSA keys, or modern elliptic-curve schemes.</dd></div>
+            <div><dt>Proper padding</dt><dd>OAEP for encryption and PSS for signatures, never raw "textbook" RSA.</dd></div>
+            <div><dt>Good randomness</dt><dd>Key generation must use a cryptographically secure random source, seeded properly.</dd></div>
+          </dl>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Security lives in the details.</b> The algorithm was fine every time; the parameters were not.</li>
+            <li><b>Small maths, big consequences.</b> A one-line GCD can break keys that look strong.</li>
+            <li><b>Trust the libraries.</b> Understanding the attacks is exactly why I would never hand-roll crypto in production.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>RSA</dt><dd>A public-key system whose security rests on the difficulty of factoring large numbers.</dd></div>
+            <div><dt>modulus</dt><dd>The public product n = p × q.</dd></div>
+            <div><dt>GCD</dt><dd>Greatest common divisor; reveals a shared prime between two moduli.</dd></div>
+            <div><dt>Fermat factorisation</dt><dd>A method that quickly factors n when its two primes are close together.</dd></div>
+            <div><dt>padding (OAEP)</dt><dd>Randomised structure added before encryption so textbook attacks fail.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">A project from my graduate Information Security course, done in an isolated lab virtual machine against systems built to be attacked. In keeping with the course's honor code, this page explains the ideas and what I learned; it does not include flags, answers, payloads or exploit code.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../sec-binary-exploitation/index.html">← Binary exploitation</a>
+      <a href="../sec-web-security/index.html">Web security →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=6"></script>
+</body>
+</html>

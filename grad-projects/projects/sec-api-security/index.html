@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Security · Authorisation and Tokens</title>
+  <meta name="description" content="Auditing a REST API for broken authorisation, path traversal and weak JWT handling.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+  </defs></svg>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="../cv-feature-matching/index.html">SIFT</a>
+        <a href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a href="../cv-scene-recognition/index.html">Scene CNN</a>
+        <a href="../sec-ml-malware/index.html">ML security</a>
+        <a href="../sec-network-mitm/index.html">MITM</a>
+        <a href="../sec-binary-exploitation/index.html">Buffer overflow</a>
+        <a href="../sec-cryptography/index.html">RSA</a>
+        <a href="../sec-web-security/index.html">XSS/CSRF</a>
+        <a href="../sec-database-security/index.html">SQL injection</a>
+        <a class="active" href="../sec-api-security/index.html">API security</a>
+        <a href="../sec-log4shell/index.html">Log4Shell</a>
+        <a href="../sec-malware-analysis/index.html">Malware</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Information security · lab project</div>
+      <h1>API security: authentication is the easy half</h1>
+      <p class="lede">Most modern breaches are not clever exploits; they are an API that forgot to ask "is this caller allowed to see this?". I audited a REST API for exactly those mistakes, from broken object-level authorisation to carelessly verified tokens.</p>
+      <div class="tags"><span class="tag">HTTP</span><span class="tag">REST</span><span class="tag">JWT</span><span class="tag">OWASP</span><span class="tag">~5 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">Why it matters</a></li>
+            <li><a href="#work">The work</a></li>
+            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Did:</strong> audited a REST API for the mistakes that cause most modern breaches: missing authorisation checks, trusting client-supplied identifiers, unsafe file paths and weak tokens.</li>
+              <li><strong>With:</strong> HTTP request tooling, the API's own documentation, and an understanding of how JSON Web Tokens (JWTs) are built and verified.</li>
+              <li><strong>Learned:</strong> that authentication ("who are you?") is the easy half; authorisation ("are you allowed to do this?") is where APIs fail.</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>APIs trust too much</h2>
+          <p>Almost every app is now a front end over an API. Each request carries everything the server needs: a path, parameters, headers and usually a token that says who the caller is. The server has to check, on every single request, not just that the token is valid but that this caller may touch this object. Skip that second check once and anyone can read anyone else's data by changing an ID in the URL.</p>
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 722 120" role="img" aria-label="Request then Token then Auth check then Response"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Request</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">GET /orders/1042</text><path class="d-line" d="M162,60 L190,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Token</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">valid user</text><path class="d-line accent" d="M346,60 L374,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Auth check</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">is it theirs?</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Response</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">order data</text></svg></div>
+            <figcaption><b>Figure 1.</b> The check that matters is the third box. Broken object-level authorisation, the top API risk on the OWASP list, is simply that box missing.</figcaption>
+          </figure>
+        </section>
+        <section id="work">
+          <div class="part-label">The work</div>
+          <h2>What I tested</h2>
+          <div class="steps">
+            <div class="step"><h4>Read the contract</h4><p>Use the API's documentation and its responses to map endpoints, parameters and what each one should allow.</p></div>
+            <div class="step"><h4>Anatomy of a request</h4><p>Understand exactly how headers, query parameters, cookies and authorisation tokens are sent and interpreted.</p></div>
+            <div class="step"><h4>Probe authorisation</h4><p>Check whether objects belonging to other users, or admin-only actions, are reachable by changing identifiers or roles.</p></div>
+            <div class="step"><h4>Inspect the tokens</h4><p>Decode JWTs to see their claims and how they are signed, and reason about what happens if the server verifies them carelessly.</p></div>
+          </div>
+        </section>
+        <section id="defend">
+          <div class="part-label">Defence</div>
+          <h2>How to defend against it</h2>
+          <dl class="gloss">
+            <div><dt>Authorise every object</dt><dd>Check ownership or role server-side on every request, never relying on what the client sends.</dd></div>
+            <div><dt>Validate paths and input</dt><dd>Normalise and whitelist file paths and parameters.</dd></div>
+            <div><dt>Verify tokens strictly</dt><dd>Fix the allowed algorithm, use strong secrets or keys, and keep token lifetimes short.</dd></div>
+            <div><dt>Least data returned</dt><dd>Return only the fields the caller needs, not whole internal objects.</dd></div>
+          </dl>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Authorisation is per request.</b> Logging in once means nothing if each endpoint does not re-check permissions.</li>
+            <li><b>Tokens are only as good as their verification.</b> A JWT is just signed JSON; the security is in how strictly the server checks it.</li>
+            <li><b>Directly useful in my work.</b> Integrating AI systems with client APIs, these are the first questions I now ask.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>REST API</dt><dd>A web interface where resources are addressed by URL and manipulated with HTTP methods.</dd></div>
+            <div><dt>IDOR / BOLA</dt><dd>Insecure direct object reference: accessing another user's object by changing its ID.</dd></div>
+            <div><dt>JWT</dt><dd>JSON Web Token: a signed, base64-encoded set of claims used for authentication.</dd></div>
+            <div><dt>path traversal</dt><dd>Using ../ style paths to reach files outside the intended folder.</dd></div>
+            <div><dt>OWASP API Top 10</dt><dd>The standard list of the most critical API security risks.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">A project from my graduate Information Security course, done in an isolated lab virtual machine against systems built to be attacked. In keeping with the course's honor code, this page explains the ideas and what I learned; it does not include flags, answers, payloads or exploit code.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../sec-database-security/index.html">← Database security</a>
+      <a href="../sec-log4shell/index.html">Log4Shell →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=6"></script>
+</body>
+</html>

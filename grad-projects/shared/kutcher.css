@@ -202,3 +202,7 @@ figure.diagram img { display: block; width: 100%; height: auto; border-radius: 1
 .fig-row img { width: 100%; height: auto; border-radius: 14px; display: block; }
 .fig-row span { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--k-navy); }
 figure.diagram img[src*="-acc"], figure.diagram img[src*="trajectory"], figure.diagram img[src*="confusion"] { max-width: 560px; margin: 0 auto; }
+
+/* six groups: three across, two rows */
+.kn-col:nth-child(6) { background: #DCEFF5; }
+@media (min-width: 861px) { .kn-panel { grid-template-columns: repeat(3, 1fr); max-height: calc(100vh - 90px); overflow-y: auto; } }

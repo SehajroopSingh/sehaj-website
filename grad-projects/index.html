@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared/styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="shared/kutcher.css?v=5">
+  <link rel="stylesheet" href="shared/kutcher.css?v=6">
 </head>
 <body>
   <header class="topbar">
@@ -32,6 +32,15 @@
         <a href="projects/cv-feature-matching/index.html">SIFT</a>
         <a href="projects/cv-camera-geometry/index.html">RANSAC</a>
         <a href="projects/cv-scene-recognition/index.html">Scene CNN</a>
+        <a href="projects/sec-ml-malware/index.html">ML security</a>
+        <a href="projects/sec-network-mitm/index.html">MITM</a>
+        <a href="projects/sec-binary-exploitation/index.html">Buffer overflow</a>
+        <a href="projects/sec-cryptography/index.html">RSA</a>
+        <a href="projects/sec-web-security/index.html">XSS/CSRF</a>
+        <a href="projects/sec-database-security/index.html">SQL injection</a>
+        <a href="projects/sec-api-security/index.html">API security</a>
+        <a href="projects/sec-log4shell/index.html">Log4Shell</a>
+        <a href="projects/sec-malware-analysis/index.html">Malware</a>
       </nav>
     </div>
   </header>
@@ -40,7 +49,7 @@
     <section class="hero">
       <div class="eyebrow">Graduate coursework · Computer Science &amp; Bioinformatics</div>
       <h1>Robots, kernels, phones and games</h1>
-      <p class="lede">Sixteen projects from eight courses. The robotics ones are rebuilt as live demos you can play with in the browser; the rest are walkthroughs that explain what was built and why, with diagrams and real results where I have them.</p>
+      <p class="lede">Twenty-five projects from nine courses. The robotics ones are rebuilt as live demos you can play with in the browser; the rest are walkthroughs that explain what was built and why, with diagrams and real results where I have them.</p>
       <div class="note">The demos are new JavaScript rebuilds written for this site, and the walkthroughs are my own summaries with diagrams made for the page. Original course solutions stay private under the Georgia Tech honor code.</div>
     </section>
 
@@ -155,7 +164,64 @@
         <div class="tags"><span class="tag">PyTorch</span><span class="tag">ResNet-18</span></div>
       </a>
     </section>
+    <h2 class="section-title">Information security</h2>
+    <section class="cards">
+      <a class="card" href="projects/sec-ml-malware/index.html">
+        <div class="num">17 · Machine learning</div>
+        <h2>ML for Malware Detection</h2>
+        <p>A scikit-learn pipeline that separates malicious from harmless programs using static file features, judged by the cost of each mistake.</p>
+        <div class="tags"><span class="tag">scikit-learn</span><span class="tag">random forest</span></div>
+      </a>
+      <a class="card" href="projects/sec-network-mitm/index.html">
+        <div class="num">18 · Forensics</div>
+        <h2>Network Forensics</h2>
+        <p>Investigating a man-in-the-middle attack from packet captures with Wireshark and an automated pyShark analysis.</p>
+        <div class="tags"><span class="tag">Wireshark</span><span class="tag">pyShark</span></div>
+      </a>
+      <a class="card" href="projects/sec-binary-exploitation/index.html">
+        <div class="num">19 · Memory safety</div>
+        <h2>Binary Exploitation</h2>
+        <p>How one missing length check lets input overwrite a program's stack and redirect it, worked through in GDB.</p>
+        <div class="tags"><span class="tag">C</span><span class="tag">GDB</span></div>
+      </a>
+      <a class="card" href="projects/sec-cryptography/index.html">
+        <div class="num">20 · Cryptography</div>
+        <h2>Breaking Weak RSA</h2>
+        <p>Small keys, shared and close primes, tiny exponents: why correct maths still fails in real deployments.</p>
+        <div class="tags"><span class="tag">Python</span><span class="tag">RSA</span></div>
+      </a>
+      <a class="card" href="projects/sec-web-security/index.html">
+        <div class="num">21 · Web</div>
+        <h2>Web Security</h2>
+        <p>Cross-site scripting and request forgery against a deliberately vulnerable app, and the defences that close them.</p>
+        <div class="tags"><span class="tag">XSS</span><span class="tag">CSRF</span></div>
+      </a>
+      <a class="card" href="projects/sec-database-security/index.html">
+        <div class="num">22 · Databases</div>
+        <h2>Database Security</h2>
+        <p>SQL injection through the front door and statistical inference through the side door.</p>
+        <div class="tags"><span class="tag">SQL Server</span><span class="tag">privacy</span></div>
+      </a>
+      <a class="card" href="projects/sec-api-security/index.html">
+        <div class="num">23 · APIs</div>
+        <h2>API Security</h2>
+        <p>Auditing a REST API for broken authorisation, unsafe paths and carelessly verified tokens.</p>
+        <div class="tags"><span class="tag">REST</span><span class="tag">JWT</span></div>
+      </a>
+      <a class="card" href="projects/sec-log4shell/index.html">
+        <div class="num">24 · Real-world CVE</div>
+        <h2>Log4Shell</h2>
+        <p>How one logged string chained Log4j, JNDI and LDAP into remote code execution, reproduced safely in a lab.</p>
+        <div class="tags"><span class="tag">Java</span><span class="tag">CVE-2021-44228</span></div>
+      </a>
+      <a class="card" href="projects/sec-malware-analysis/index.html">
+        <div class="num">25 · Threat analysis</div>
+        <h2>Malware Analysis</h2>
+        <p>Behaviour-based triage of real malware in a sandbox: persistence, dropped files and command-and-control traffic.</p>
+        <div class="tags"><span class="tag">sandbox</span><span class="tag">IOCs</span></div>
+      </a>
+    </section>
   </main>
-<script src="shared/kutcher.js?v=4"></script>
+<script src="shared/kutcher.js?v=6"></script>
 </body>
 </html>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Database Security · SQL Injection and Inference</title>
+  <meta name="description" content="SQL injection and statistical inference attacks against a SQL Server database.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="../../shared/walkthrough.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--accent)"></path></marker>
+  </defs></svg>
+  <header class="topbar">
+    <div class="wrap">
+      <a class="brand" href="../../../projects.html">Sehaj <span>Singh</span> · Projects</a>
+      <nav class="topnav">
+        <a href="../solar-system-particle-filter/index.html">Particle filter</a>
+        <a href="../hopscotch-kalman-filter/index.html">Kalman</a>
+        <a href="../drone-pid-control/index.html">PID</a>
+        <a href="../indiana-drones-slam/index.html">SLAM</a>
+        <a href="../warehouse-search/index.html">Search</a>
+        <a href="../aos-vm-resource-manager/index.html">VM scheduler</a>
+        <a href="../infos-kernel-tasks/index.html">InfOS kernel</a>
+        <a href="../mips-multicycle-simulator/index.html">MIPS sim</a>
+        <a href="../muc-screen-time-app/index.html">iOS app</a>
+        <a href="../unity-video-game-design/index.html">Unity</a>
+        <a href="../bioinformatics-autism-genes/index.html">Autism genes</a>
+        <a href="../world-dataset-education/index.html">World data</a>
+        <a href="../cv-hybrid-images/index.html">Hybrid images</a>
+        <a href="../cv-feature-matching/index.html">SIFT</a>
+        <a href="../cv-camera-geometry/index.html">RANSAC</a>
+        <a href="../cv-scene-recognition/index.html">Scene CNN</a>
+        <a href="../sec-ml-malware/index.html">ML security</a>
+        <a href="../sec-network-mitm/index.html">MITM</a>
+        <a href="../sec-binary-exploitation/index.html">Buffer overflow</a>
+        <a href="../sec-cryptography/index.html">RSA</a>
+        <a href="../sec-web-security/index.html">XSS/CSRF</a>
+        <a class="active" href="../sec-database-security/index.html">SQL injection</a>
+        <a href="../sec-api-security/index.html">API security</a>
+        <a href="../sec-log4shell/index.html">Log4Shell</a>
+        <a href="../sec-malware-analysis/index.html">Malware</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Information security · lab project</div>
+      <h1>Database security: through the front door and the side door</h1>
+      <p class="lede">Databases leak in two very different ways: queries built carelessly from user input, and aggregate statistics that reveal more than anyone intended. I explored both against a SQL Server lab database, and both changed how I think about building data products.</p>
+      <div class="tags"><span class="tag">SQL</span><span class="tag">T-SQL</span><span class="tag">SQL Server</span><span class="tag">privacy</span><span class="tag">~5 min read</span></div>
+    </section>
+
+    <div class="walk">
+      <nav class="toc" aria-label="On this page">
+        <details open>
+          <summary>On this page</summary>
+          <ol>
+            <li><a href="#summary">The 30-second version</a></li>
+            <li><a href="#idea">Why it matters</a></li>
+            <li><a href="#work">The work</a></li>
+            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#lessons">What it taught me</a></li>
+            <li><a href="#terms">Key terms</a></li>
+          </ol>
+        </details>
+      </nav>
+
+      <div class="body">
+        <section id="summary">
+          <div class="tldr">
+            <h2>The 30-second version</h2>
+            <ul>
+              <li><strong>Did:</strong> two kinds of attack on a SQL Server database: SQL injection through an application's inputs, and inference attacks that recover private records from "safe" aggregate statistics.</li>
+              <li><strong>With:</strong> T-SQL and a small web front end, in a lab virtual machine.</li>
+              <li><strong>Learned:</strong> that databases leak through both the front door (bad query building) and the side door (statistics that reveal more than intended).</li>
+            </ul>
+          </div>
+        </section>
+        <section id="idea">
+          <div class="part-label">Background</div>
+          <h2>Two ways data escapes</h2>
+          <p>SQL injection happens when an application builds a query by gluing user input into SQL text. Input that contains SQL syntax changes the meaning of the query, so a login check or a search can be turned into something that reads, or changes, data it was never meant to touch.</p>
+          <p>Inference attacks are subtler. A database may hide individual rows and only answer aggregate questions such as counts and averages. But by asking several overlapping questions and comparing the answers, you can often narrow the result down to a single person and learn their value. This is exactly the problem that privacy techniques like differential privacy were invented to solve.</p>
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 722 120" role="img" aria-label="User input then Query text then Database then Result"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">User input</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">form field</text><path class="d-line accent" d="M162,60 L190,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Query text</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">input glued in</text><path class="d-line" d="M346,60 L374,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Database</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">runs new logic</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Result</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">unintended data</text></svg></div>
+            <figcaption><b>Figure 1.</b> SQL injection: the database is doing exactly what it was told. The bug is that the user got to write part of the instruction.</figcaption>
+          </figure>
+        </section>
+        <section id="work">
+          <div class="part-label">The work</div>
+          <h2>What I explored</h2>
+          <div class="steps">
+            <div class="step"><h4>Find the injectable inputs</h4><p>Identify where user input reaches a query unsafely, and how the application responds to malformed input.</p></div>
+            <div class="step"><h4>Understand the query</h4><p>Reason about the SQL the app must be running and how input changes its logic, using the database's own structure where the app exposes it.</p></div>
+            <div class="step"><h4>Infer without seeing</h4><p>Combine permitted aggregate queries, each harmless alone, until they pin down a specific hidden record.</p></div>
+            <div class="step"><h4>Write it up precisely</h4><p>Record each finding in a structured format that a grader, or a security team, could verify.</p></div>
+          </div>
+        </section>
+        <section id="defend">
+          <div class="part-label">Defence</div>
+          <h2>How to defend against it</h2>
+          <dl class="gloss">
+            <div><dt>Parameterised queries</dt><dd>Input is passed as data, never as SQL text, which removes injection entirely.</dd></div>
+            <div><dt>Least privilege</dt><dd>The app's database account should only be able to do what the app needs.</dd></div>
+            <div><dt>Query-set restrictions</dt><dd>Refuse aggregates over very small groups and audit overlapping queries.</dd></div>
+            <div><dt>Differential privacy</dt><dd>Add calibrated noise to statistics so no individual can be singled out.</dd></div>
+          </dl>
+        </section>
+        <section id="lessons">
+          <div class="part-label">Looking back</div>
+          <h2>What it taught me</h2>
+          <ol class="lessons">
+            <li><b>Never build SQL with strings.</b> Parameterisation is a one-line habit that removes a whole category of breach.</li>
+            <li><b>Aggregates are not anonymous.</b> Overlapping statistics can rebuild individual records, which matters for any analytics product.</li>
+            <li><b>Data and privacy are one topic.</b> This project connected straight back to my data-science work.</li>
+          </ol>
+        </section>
+        <section id="terms">
+          <div class="part-label">Reference</div>
+          <h2>Key terms</h2>
+          <dl class="gloss">
+            <div><dt>SQL injection</dt><dd>User input altering the structure of a database query.</dd></div>
+            <div><dt>parameterised query</dt><dd>A query where values are bound separately from the SQL text.</dd></div>
+            <div><dt>inference attack</dt><dd>Deducing hidden data by combining permitted query results.</dd></div>
+            <div><dt>T-SQL</dt><dd>Microsoft SQL Server's dialect of SQL.</dd></div>
+            <div><dt>differential privacy</dt><dd>A formal method of adding noise so individuals cannot be identified.</dd></div>
+          </dl>
+        </section>
+
+        <div class="note" style="margin-top:28px">A project from my graduate Information Security course, done in an isolated lab virtual machine against systems built to be attacked. In keeping with the course's honor code, this page explains the ideas and what I learned; it does not include flags, answers, payloads or exploit code.</div>
+      </div>
+    </div>
+
+    <nav class="pager">
+      <a href="../sec-web-security/index.html">← Web security</a>
+      <a href="../sec-api-security/index.html">API security →</a>
+    </nav>
+  </main>
+
+  <script src="../../shared/walkthrough.js"></script>
+<script src="../../shared/kutcher.js?v=6"></script>
+</body>
+</html>
