@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Database Security · SQL Injection and Inference</title>
-  <meta name="description" content="SQL injection and statistical inference attacks against a SQL Server database.">
+  <meta name="description" content="SQL injection and statistical inference attacks against a SQL Server database, and the different defences each needs.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
   <link rel="stylesheet" href="../../shared/walkthrough.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=7">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -54,8 +54,8 @@
     <section class="hero">
       <div class="eyebrow">Information security · lab project</div>
       <h1>Database security: through the front door and the side door</h1>
-      <p class="lede">Databases leak in two very different ways: queries built carelessly from user input, and aggregate statistics that reveal more than anyone intended. I explored both against a SQL Server lab database, and both changed how I think about building data products.</p>
-      <div class="tags"><span class="tag">SQL</span><span class="tag">T-SQL</span><span class="tag">SQL Server</span><span class="tag">privacy</span><span class="tag">~5 min read</span></div>
+      <p class="lede">Databases leak in two very different ways: queries built carelessly from user input, and aggregate statistics that reveal more than anyone intended. I explored both against a SQL Server lab database, and both changed how I think about building data and AI products.</p>
+      <div class="tags"><span class="tag">SQL</span><span class="tag">T-SQL</span><span class="tag">SQL Server</span><span class="tag">privacy</span><span class="tag">~7 min read</span></div>
     </section>
 
     <div class="walk">
@@ -64,9 +64,9 @@
           <summary>On this page</summary>
           <ol>
             <li><a href="#summary">The 30-second version</a></li>
-            <li><a href="#idea">Why it matters</a></li>
-            <li><a href="#work">The work</a></li>
-            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#sqli">Front door · SQL injection</a></li>
+            <li><a href="#infer">Side door · inference</a></li>
+            <li><a href="#defend">Defences</a></li>
             <li><a href="#lessons">What it taught me</a></li>
             <li><a href="#terms">Key terms</a></li>
           </ol>
@@ -78,49 +78,62 @@
           <div class="tldr">
             <h2>The 30-second version</h2>
             <ul>
-              <li><strong>Did:</strong> two kinds of attack on a SQL Server database: SQL injection through an application's inputs, and inference attacks that recover private records from "safe" aggregate statistics.</li>
-              <li><strong>With:</strong> T-SQL and a small web front end, in a lab virtual machine.</li>
-              <li><strong>Learned:</strong> that databases leak through both the front door (bad query building) and the side door (statistics that reveal more than intended).</li>
+              <li><strong>Did:</strong> two kinds of attack on a Microsoft SQL Server database inside a lab VM: SQL injection through an application's inputs, and inference attacks that recover private records from statistics that were supposed to be safe.</li>
+              <li><strong>With:</strong> T-SQL, the application's front end and the database's own structure.</li>
+              <li><strong>Learned:</strong> databases leak through the front door (queries built from untrusted input) and the side door (aggregates that reveal individuals), and the fixes for each are completely different.</li>
             </ul>
           </div>
         </section>
-        <section id="idea">
-          <div class="part-label">Background</div>
-          <h2>Two ways data escapes</h2>
-          <p>SQL injection happens when an application builds a query by gluing user input into SQL text. Input that contains SQL syntax changes the meaning of the query, so a login check or a search can be turned into something that reads, or changes, data it was never meant to touch.</p>
-          <p>Inference attacks are subtler. A database may hide individual rows and only answer aggregate questions such as counts and averages. But by asking several overlapping questions and comparing the answers, you can often narrow the result down to a single person and learn their value. This is exactly the problem that privacy techniques like differential privacy were invented to solve.</p>
-          <figure class="diagram">
-            <div class="scroll"><svg viewBox="0 0 722 120" role="img" aria-label="User input then Query text then Database then Result"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">User input</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">form field</text><path class="d-line accent" d="M162,60 L190,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Query text</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">input glued in</text><path class="d-line" d="M346,60 L374,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Database</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">runs new logic</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Result</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">unintended data</text></svg></div>
-            <figcaption><b>Figure 1.</b> SQL injection: the database is doing exactly what it was told. The bug is that the user got to write part of the instruction.</figcaption>
-          </figure>
-        </section>
-        <section id="work">
-          <div class="part-label">The work</div>
-          <h2>What I explored</h2>
-          <div class="steps">
-            <div class="step"><h4>Find the injectable inputs</h4><p>Identify where user input reaches a query unsafely, and how the application responds to malformed input.</p></div>
-            <div class="step"><h4>Understand the query</h4><p>Reason about the SQL the app must be running and how input changes its logic, using the database's own structure where the app exposes it.</p></div>
-            <div class="step"><h4>Infer without seeing</h4><p>Combine permitted aggregate queries, each harmless alone, until they pin down a specific hidden record.</p></div>
-            <div class="step"><h4>Write it up precisely</h4><p>Record each finding in a structured format that a grader, or a security team, could verify.</p></div>
+        <section id="sqli">
+          <div class="part-label">Front door</div>
+          <h2>SQL injection: when input becomes instructions</h2>
+          <p>SQL injection happens when an application builds a query by pasting user input into SQL text. The database cannot tell which parts the developer wrote and which parts the user typed, so input that contains SQL syntax changes the <em>meaning</em> of the query: a login check stops checking, a search returns other tables, an update touches every row.</p>
+          <div class="sx-two">
+<div><div class="sx-code-card bad"><h5>Built by gluing strings</h5><pre class="code">query = <span class="k">"SELECT * FROM users WHERE name = '"</span>
+        + <span class="n">user_input</span>
+        + <span class="k">"'"</span></pre><p>The user's text becomes part of the SQL itself. Whoever controls the input can rewrite the logic.</p></div></div>
+<div><div class="sx-code-card ok"><h5>Parameterised</h5><pre class="code">query = <span class="k">"SELECT * FROM users WHERE name = @name"</span>
+cmd.Parameters.Add(<span class="k">"@name"</span>, <span class="n">user_input</span>)</pre><p>The SQL is fixed first; the input is sent separately and can only ever be treated as a value.</p></div></div>
           </div>
+          <div class="steps">
+            <div class="step"><h4>Find where input meets a query</h4><p>Identify fields whose values clearly end up in database queries, and how the app behaves on unusual input.</p></div>
+            <div class="step"><h4>Infer the hidden query</h4><p>Reason about what SQL the application must be running, from its behaviour and any errors it exposes.</p></div>
+            <div class="step"><h4>Enumerate carefully</h4><p>Use what the database reveals about its own structure to understand what data is reachable, all inside the lab.</p></div>
+            <div class="step"><h4>Document precisely</h4><p>Record each finding in the structured format required, as a real assessment report would.</p></div>
+          </div>
+        </section>
+        <section id="infer">
+          <div class="part-label">Side door</div>
+          <h2>Inference: learning secrets from "safe" statistics</h2>
+          <p>The second half of the project needed no bug at all. Suppose a database hides individual rows and only answers aggregate questions such as counts, sums and averages, over groups. Each answer looks harmless. But two overlapping questions can differ by exactly one person, and subtracting them reveals that person's value. This is called a <b>differencing attack</b>, and it is why releasing statistics is a genuine privacy problem.</p>
+          <figure class="diagram sx-lab">
+            <div class="sx-lab-head"><span class="sx-dot"></span>A differencing attack on fictional data<em>interactive</em></div>
+            <div class="sx-inf">
+              <table class="rules"><thead><tr><th>Employee</th><th>Dept</th><th>Salary</th></tr></thead><tbody id="infRows"></tbody></table>
+              <div class="sx-inf-side">
+                <div class="controls"><label>Target <select id="infT"></select></label></div>
+                <div class="sx-kv"><span>Query 1: total salary, whole department</span><b id="q1">–</b></div>
+                <div class="sx-kv"><span id="q2l">Query 2</span><b id="q2">–</b></div>
+                <div class="sx-kv"><span>Q1 − Q2 = target's salary</span><b id="q3">–</b></div>
+                <p class="hint">Individual salaries are hidden; only the two sums are "allowed".</p>
+              </div>
+            </div>
+            <figcaption><b>Figure 1.</b> Made-up employees. Each query is an innocent-looking aggregate, but they differ by exactly one person. Pick a target: the subtraction reveals a value the database never directly returned.</figcaption>
+          </figure>
+          <p>Defences here are statistical rather than syntactic: refuse aggregates over very small groups, track and block overlapping query sets, or add carefully calibrated random noise so no single person's presence changes an answer meaningfully. That last idea is <b>differential privacy</b>, now used by census bureaus and large tech companies.</p>
         </section>
         <section id="defend">
           <div class="part-label">Defence</div>
-          <h2>How to defend against it</h2>
-          <dl class="gloss">
-            <div><dt>Parameterised queries</dt><dd>Input is passed as data, never as SQL text, which removes injection entirely.</dd></div>
-            <div><dt>Least privilege</dt><dd>The app's database account should only be able to do what the app needs.</dd></div>
-            <div><dt>Query-set restrictions</dt><dd>Refuse aggregates over very small groups and audit overlapping queries.</dd></div>
-            <div><dt>Differential privacy</dt><dd>Add calibrated noise to statistics so no individual can be singled out.</dd></div>
-          </dl>
+          <h2>Two doors, two kinds of lock</h2>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Threat</th><th>Defence</th><th>Why it works</th></tr></thead><tbody><tr><td>SQL injection</td><td>Parameterised queries / prepared statements</td><td>Input is bound as data and can never change the query's structure</td></tr><tr><td>SQL injection</td><td>Least-privilege database accounts</td><td>Even a successful injection can only reach what the app account may touch</td></tr><tr><td>SQL injection</td><td>Input validation + safe error messages</td><td>Reduces what an attacker can learn by probing</td></tr><tr><td>Inference</td><td>Minimum query-set size</td><td>Blocks aggregates that cover only one or two people</td></tr><tr><td>Inference</td><td>Query auditing</td><td>Detects sequences of overlapping queries that isolate someone</td></tr><tr><td>Inference</td><td>Differential privacy</td><td>Adds noise so any one person's data barely changes results</td></tr></tbody></table></div>
         </section>
         <section id="lessons">
           <div class="part-label">Looking back</div>
           <h2>What it taught me</h2>
           <ol class="lessons">
             <li><b>Never build SQL with strings.</b> Parameterisation is a one-line habit that removes a whole category of breach.</li>
-            <li><b>Aggregates are not anonymous.</b> Overlapping statistics can rebuild individual records, which matters for any analytics product.</li>
-            <li><b>Data and privacy are one topic.</b> This project connected straight back to my data-science work.</li>
+            <li><b>Aggregates are not anonymous.</b> Overlapping statistics can rebuild individual records; this matters for any analytics or AI product built on personal data.</li>
+            <li><b>Security and privacy are one topic.</b> This project connected directly back to my data-science work.</li>
           </ol>
         </section>
         <section id="terms">
@@ -128,10 +141,11 @@
           <h2>Key terms</h2>
           <dl class="gloss">
             <div><dt>SQL injection</dt><dd>User input altering the structure of a database query.</dd></div>
-            <div><dt>parameterised query</dt><dd>A query where values are bound separately from the SQL text.</dd></div>
-            <div><dt>inference attack</dt><dd>Deducing hidden data by combining permitted query results.</dd></div>
+            <div><dt>parameterised query</dt><dd>A query whose values are bound separately from its SQL text.</dd></div>
             <div><dt>T-SQL</dt><dd>Microsoft SQL Server's dialect of SQL.</dd></div>
-            <div><dt>differential privacy</dt><dd>A formal method of adding noise so individuals cannot be identified.</dd></div>
+            <div><dt>inference attack</dt><dd>Deducing hidden data by combining permitted results.</dd></div>
+            <div><dt>differencing attack</dt><dd>Subtracting two overlapping aggregates to isolate one record.</dd></div>
+            <div><dt>differential privacy</dt><dd>A formal guarantee, achieved with noise, that individuals cannot be singled out.</dd></div>
           </dl>
         </section>
 
@@ -146,6 +160,16 @@
   </main>
 
   <script src="../../shared/walkthrough.js"></script>
-<script src="../../shared/kutcher.js?v=6"></script>
+<script src="../../shared/kutcher.js?v=7"></script>
+<script>
+(function(){var D=[['Avery','Data',2018,91000],['Blake','Data',2021,84000],['Casey','Data',2022,78000],['Devon','Data',2019,102000],['Emery','Data',2023,73000]];var tb=document.getElementById('infRows'),sel=document.getElementById('infT');if(!tb)return;
+D.forEach(function(r){sel.add(new Option(r[0],r[0]));});
+function run(){var t=sel.value,T=D.filter(function(r){return r[0]==t})[0];
+tb.innerHTML=D.map(function(r){return '<tr'+(r[0]==t?' class="sx-hit"':'')+'><td>'+r[0]+'</td><td>'+r[1]+' · hired '+r[2]+'</td><td>'+(r[0]==t?'<b>revealed below</b>':'<span class="sx-mask">hidden</span>')+'</td></tr>';}).join('');
+var all=D.reduce(function(a,r){return a+r[3]},0),others=D.filter(function(r){return r[2]!=T[2];}).reduce(function(a,r){return a+r[3]},0);
+document.getElementById('q2l').textContent='Query 2: total salary, department excluding anyone hired in '+T[2];
+document.getElementById('q1').textContent='$'+all.toLocaleString();document.getElementById('q2').textContent='$'+others.toLocaleString();document.getElementById('q3').textContent='$'+(all-others).toLocaleString();}
+sel.addEventListener('input',run);run();})();
+</script>
 </body>
 </html>

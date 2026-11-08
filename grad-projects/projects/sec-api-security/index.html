@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>API Security · Authorisation and Tokens</title>
-  <meta name="description" content="Auditing a REST API for broken authorisation, path traversal and weak JWT handling.">
+  <meta name="description" content="Auditing a REST API for broken authorisation, path traversal and weak JWT handling, with the defences for each.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
   <link rel="stylesheet" href="../../shared/walkthrough.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=7">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -55,7 +55,7 @@
       <div class="eyebrow">Information security · lab project</div>
       <h1>API security: authentication is the easy half</h1>
       <p class="lede">Most modern breaches are not clever exploits; they are an API that forgot to ask "is this caller allowed to see this?". I audited a REST API for exactly those mistakes, from broken object-level authorisation to carelessly verified tokens.</p>
-      <div class="tags"><span class="tag">HTTP</span><span class="tag">REST</span><span class="tag">JWT</span><span class="tag">OWASP</span><span class="tag">~5 min read</span></div>
+      <div class="tags"><span class="tag">HTTP</span><span class="tag">REST</span><span class="tag">JWT</span><span class="tag">OWASP</span><span class="tag">~7 min read</span></div>
     </section>
 
     <div class="walk">
@@ -64,9 +64,10 @@
           <summary>On this page</summary>
           <ol>
             <li><a href="#summary">The 30-second version</a></li>
-            <li><a href="#idea">Why it matters</a></li>
-            <li><a href="#work">The work</a></li>
-            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#anatomy">Anatomy of a request</a></li>
+            <li><a href="#authz">Broken authorisation</a></li>
+            <li><a href="#jwt">Tokens</a></li>
+            <li><a href="#defend">Defences</a></li>
             <li><a href="#lessons">What it taught me</a></li>
             <li><a href="#terms">Key terms</a></li>
           </ol>
@@ -78,59 +79,72 @@
           <div class="tldr">
             <h2>The 30-second version</h2>
             <ul>
-              <li><strong>Did:</strong> audited a REST API for the mistakes that cause most modern breaches: missing authorisation checks, trusting client-supplied identifiers, unsafe file paths and weak tokens.</li>
-              <li><strong>With:</strong> HTTP request tooling, the API's own documentation, and an understanding of how JSON Web Tokens (JWTs) are built and verified.</li>
-              <li><strong>Learned:</strong> that authentication ("who are you?") is the easy half; authorisation ("are you allowed to do this?") is where APIs fail.</li>
+              <li><strong>Did:</strong> audited a REST API for the mistakes behind most modern data breaches: missing authorisation checks, trusting identifiers sent by the client, unsafe file paths and loosely verified tokens.</li>
+              <li><strong>With:</strong> HTTP request tools, the API's own documentation, and a working understanding of how JSON Web Tokens (JWTs) are built, signed and verified.</li>
+              <li><strong>Learned:</strong> authentication answers "who are you?" once; authorisation must answer "are you allowed to do <em>this</em>, to <em>this</em> object?" on every single request.</li>
             </ul>
           </div>
         </section>
-        <section id="idea">
+        <section id="anatomy">
           <div class="part-label">Background</div>
-          <h2>APIs trust too much</h2>
-          <p>Almost every app is now a front end over an API. Each request carries everything the server needs: a path, parameters, headers and usually a token that says who the caller is. The server has to check, on every single request, not just that the token is valid but that this caller may touch this object. Skip that second check once and anyone can read anyone else's data by changing an ID in the URL.</p>
-          <figure class="diagram">
-            <div class="scroll"><svg viewBox="0 0 722 120" role="img" aria-label="Request then Token then Auth check then Response"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Request</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">GET /orders/1042</text><path class="d-line" d="M162,60 L190,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Token</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">valid user</text><path class="d-line accent" d="M346,60 L374,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Auth check</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">is it theirs?</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Response</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">order data</text></svg></div>
-            <figcaption><b>Figure 1.</b> The check that matters is the third box. Broken object-level authorisation, the top API risk on the OWASP list, is simply that box missing.</figcaption>
-          </figure>
-        </section>
-        <section id="work">
-          <div class="part-label">The work</div>
-          <h2>What I tested</h2>
-          <div class="steps">
-            <div class="step"><h4>Read the contract</h4><p>Use the API's documentation and its responses to map endpoints, parameters and what each one should allow.</p></div>
-            <div class="step"><h4>Anatomy of a request</h4><p>Understand exactly how headers, query parameters, cookies and authorisation tokens are sent and interpreted.</p></div>
-            <div class="step"><h4>Probe authorisation</h4><p>Check whether objects belonging to other users, or admin-only actions, are reachable by changing identifiers or roles.</p></div>
-            <div class="step"><h4>Inspect the tokens</h4><p>Decode JWTs to see their claims and how they are signed, and reason about what happens if the server verifies them carelessly.</p></div>
+          <h2>Anatomy of an API request</h2>
+          <p>Every call to an API is self-contained: the server knows only what this one request tells it. Understanding exactly which parts the client controls (all of them) is the starting point for any audit.</p>
+          <div class="sx-req">
+            <div class="sx-req-line"><span class="m">GET</span><span class="p">/api/v1/orders/<b>1042</b></span><span class="v">HTTP/1.1</span></div>
+            <div class="sx-req-row"><span>Host</span>shop.example.com</div>
+            <div class="sx-req-row hot"><span>Authorization</span>Bearer eyJhbGciOi… <em>who the caller claims to be</em></div>
+            <div class="sx-req-row"><span>Cookie</span>session=… <em>sometimes used instead of a token</em></div>
+            <div class="sx-req-row"><span>Query</span>?include=items&amp;format=json <em>options the server reads</em></div>
+            <p class="sx-cap">The highlighted ID and token are both supplied by the client. The server must verify the token <em>and</em> check that order 1042 belongs to whoever it identifies.</p>
           </div>
+        </section>
+        <section id="authz">
+          <div class="part-label">Problem 1</div>
+          <h2>Broken object-level authorisation</h2>
+          <p>The most common API flaw (number one on the OWASP API Security Top 10) is simple: the server checks that the token is valid, then returns whatever object ID was requested. Change 1042 to 1043 and you see someone else's order. Nothing was "hacked"; one check was missing.</p>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Request</th><th>Alice's orders</th><th>Bob's orders</th><th>Admin endpoint</th></tr></thead><tbody><tr><td>Alice's token, expected</td><td>✔ allowed</td><td>✘ must be denied</td><td>✘ must be denied</td></tr><tr><td>What a broken API does</td><td>✔ allowed</td><td>✔ <b>returned anyway</b></td><td>✔ <b>returned anyway</b></td></tr></tbody></table></div><p class="sx-cap">An authorisation matrix. Auditing an API is largely filling in this table for every endpoint and checking the server enforces it.</p>
+          <p>I worked through the documented and undocumented endpoints testing exactly this: objects belonging to other users, admin-only actions, and file-retrieval endpoints that build file paths from client input (where <code>../</code> sequences can escape the intended folder, a <b>path traversal</b>).</p>
+        </section>
+        <section id="jwt">
+          <div class="part-label">Problem 2</div>
+          <h2>Tokens are only as good as their verification</h2>
+          <p>A JWT is three base64-encoded parts joined by dots: a header naming the signing algorithm, a payload of claims (user ID, role, expiry) and a signature. Anyone can decode and read the first two; the signature is what stops them being edited. Security therefore depends entirely on how strictly the server verifies it.</p>
+          <figure class="diagram sx-lab">
+            <div class="sx-lab-head"><span class="sx-dot"></span>Decoding a (fictional) JWT<em>interactive</em></div>
+            <div class="sx-jwt"><code><span class="h">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</span>.<span class="pl">eyJzdWIiOiJ1c2VyLTEwNDIiLCJyb2xlIjoiY3VzdG9tZXIiLCJleHAiOjE3MzUwMDAwMDB9</span>.<span class="s">c2lnbmF0dXJlLWZvci1kZW1v</span></code></div>
+            <div class="sx-jwt-parts">
+              <div class="h"><h5>Header</h5><pre class="code" id="jwtH"></pre><p>Which algorithm signed it. A server must not let the token choose this.</p></div>
+              <div class="pl"><h5>Payload (claims)</h5><pre class="code" id="jwtP"></pre><p>Readable by anyone. Never put secrets here, and never trust a role claim the server has not verified.</p></div>
+              <div class="s"><h5>Signature</h5><pre class="code">HMAC-SHA256(header.payload, secret)</pre><p>Only valid if the server checks it with a strong key and the expected algorithm.</p></div>
+            </div>
+            <figcaption><b>Figure 1.</b> A made-up token decoded live in your browser. Notice that the claims are plain readable JSON; the protection comes only from the signature check.</figcaption>
+          </figure>
+          <p>The classic failures all come from careless verification: accepting tokens that declare no algorithm, signing with a short guessable secret, not checking expiry, or trusting a role claim without confirming it server-side.</p>
         </section>
         <section id="defend">
           <div class="part-label">Defence</div>
-          <h2>How to defend against it</h2>
-          <dl class="gloss">
-            <div><dt>Authorise every object</dt><dd>Check ownership or role server-side on every request, never relying on what the client sends.</dd></div>
-            <div><dt>Validate paths and input</dt><dd>Normalise and whitelist file paths and parameters.</dd></div>
-            <div><dt>Verify tokens strictly</dt><dd>Fix the allowed algorithm, use strong secrets or keys, and keep token lifetimes short.</dd></div>
-            <div><dt>Least data returned</dt><dd>Return only the fields the caller needs, not whole internal objects.</dd></div>
-          </dl>
+          <h2>How to build an API that does not leak</h2>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Risk</th><th>Defence</th></tr></thead><tbody><tr><td>Broken object-level authorisation</td><td>Check ownership or permission server-side on every request; deny by default</td></tr><tr><td>Broken function-level authorisation</td><td>Separate admin routes and enforce roles in one central place</td></tr><tr><td>Path traversal</td><td>Never build file paths from input; use IDs mapped to files, and normalise + whitelist</td></tr><tr><td>Weak JWT handling</td><td>Pin the expected algorithm, use strong keys, verify expiry, keep lifetimes short</td></tr><tr><td>Excessive data exposure</td><td>Return only the fields the caller needs, not whole internal objects</td></tr><tr><td>Unknown endpoints</td><td>Keep an inventory; retire old versions; document everything that is live</td></tr></tbody></table></div>
         </section>
         <section id="lessons">
           <div class="part-label">Looking back</div>
           <h2>What it taught me</h2>
           <ol class="lessons">
             <li><b>Authorisation is per request.</b> Logging in once means nothing if each endpoint does not re-check permissions.</li>
-            <li><b>Tokens are only as good as their verification.</b> A JWT is just signed JSON; the security is in how strictly the server checks it.</li>
-            <li><b>Directly useful in my work.</b> Integrating AI systems with client APIs, these are the first questions I now ask.</li>
+            <li><b>Readable is not secure.</b> JWT payloads are plain JSON; only verification makes them trustworthy.</li>
+            <li><b>Directly relevant to my work.</b> When I connect AI systems to a client's APIs, these are now the first questions I ask.</li>
           </ol>
         </section>
         <section id="terms">
           <div class="part-label">Reference</div>
           <h2>Key terms</h2>
           <dl class="gloss">
-            <div><dt>REST API</dt><dd>A web interface where resources are addressed by URL and manipulated with HTTP methods.</dd></div>
-            <div><dt>IDOR / BOLA</dt><dd>Insecure direct object reference: accessing another user's object by changing its ID.</dd></div>
-            <div><dt>JWT</dt><dd>JSON Web Token: a signed, base64-encoded set of claims used for authentication.</dd></div>
-            <div><dt>path traversal</dt><dd>Using ../ style paths to reach files outside the intended folder.</dd></div>
-            <div><dt>OWASP API Top 10</dt><dd>The standard list of the most critical API security risks.</dd></div>
+            <div><dt>REST API</dt><dd>An HTTP interface where resources have URLs and are manipulated with methods like GET and POST.</dd></div>
+            <div><dt>authentication vs authorisation</dt><dd>Proving who you are vs being allowed to do something.</dd></div>
+            <div><dt>BOLA / IDOR</dt><dd>Accessing another user's object by changing its identifier.</dd></div>
+            <div><dt>path traversal</dt><dd>Using ../ sequences to reach files outside an intended folder.</dd></div>
+            <div><dt>JWT</dt><dd>JSON Web Token: signed, base64-encoded claims.</dd></div>
+            <div><dt>OWASP API Top 10</dt><dd>The standard list of the most critical API risks.</dd></div>
           </dl>
         </section>
 
@@ -145,6 +159,10 @@
   </main>
 
   <script src="../../shared/walkthrough.js"></script>
-<script src="../../shared/kutcher.js?v=6"></script>
+<script src="../../shared/kutcher.js?v=7"></script>
+<script>
+(function(){function d(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';try{return JSON.stringify(JSON.parse(atob(s)),null,2);}catch(e){return atob(s);}}
+var h=document.querySelector('.sx-jwt .h'),p=document.querySelector('.sx-jwt .pl');if(!h)return;document.getElementById('jwtH').textContent=d(h.textContent);document.getElementById('jwtP').textContent=d(p.textContent);})();
+</script>
 </body>
 </html>

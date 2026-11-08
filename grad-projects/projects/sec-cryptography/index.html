@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cryptography · Breaking Weak RSA</title>
-  <meta name="description" content="Attacks on weak RSA deployments in Python: small keys, shared primes, close primes and small exponents.">
+  <meta name="description" content="RSA implemented from first principles, then the classic attacks on weak deployments: small keys, shared primes, close primes and unpadded small exponents.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
   <link rel="stylesheet" href="../../shared/walkthrough.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=7">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -55,7 +55,7 @@
       <div class="eyebrow">Information security · lab project</div>
       <h1>Cryptography: when correct maths meets bad choices</h1>
       <p class="lede">RSA is mathematically sound, yet real systems keep breaking it. I implemented RSA from first principles and then the classic attacks on weak deployments, which made it very clear that crypto fails in the details, not the theory.</p>
-      <div class="tags"><span class="tag">Python</span><span class="tag">RSA</span><span class="tag">number theory</span><span class="tag">cryptanalysis</span><span class="tag">~5 min read</span></div>
+      <div class="tags"><span class="tag">Python</span><span class="tag">RSA</span><span class="tag">number theory</span><span class="tag">cryptanalysis</span><span class="tag">~7 min read</span></div>
     </section>
 
     <div class="walk">
@@ -64,9 +64,9 @@
           <summary>On this page</summary>
           <ol>
             <li><a href="#summary">The 30-second version</a></li>
-            <li><a href="#idea">Why it matters</a></li>
-            <li><a href="#work">The attacks</a></li>
-            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#idea">RSA from scratch</a></li>
+            <li><a href="#attacks">Four attacks</a></li>
+            <li><a href="#defend">Doing it properly</a></li>
             <li><a href="#lessons">What it taught me</a></li>
             <li><a href="#terms">Key terms</a></li>
           </ol>
@@ -78,60 +78,72 @@
           <div class="tldr">
             <h2>The 30-second version</h2>
             <ul>
-              <li><strong>Did:</strong> attacks on deliberately weak RSA setups in Python, showing that the maths of RSA can be perfect while the way it is used is broken.</li>
-              <li><strong>Covered:</strong> how RSA works from first principles (primes, modular arithmetic, key generation) and the classic implementation mistakes: keys that are too small, primes reused or chosen badly, and exponents that are too small for the message.</li>
-              <li><strong>Learned:</strong> why "don't roll your own crypto" is real advice, and how much security rests on details like how primes are generated.</li>
+              <li><strong>Did:</strong> implemented RSA from first principles in Python and then the classic attacks on weak deployments, recovering private keys and messages from setups that look secure on paper.</li>
+              <li><strong>Attacks:</strong> keys too small to resist factoring; primes shared between different keys (broken by a single GCD); primes too close together (Fermat's method); and tiny public exponents used without padding.</li>
+              <li><strong>Takeaway:</strong> none of these break RSA's mathematics. They break the choices around it: key size, randomness and padding. That is where real cryptographic failures live.</li>
             </ul>
           </div>
         </section>
         <section id="idea">
           <div class="part-label">Background</div>
-          <h2>RSA in one paragraph</h2>
-          <p>RSA picks two large secret primes, multiplies them into a public modulus, and derives a public and a private exponent from them. Anyone can encrypt with the public key; only the holder of the primes can decrypt. Its security rests on one assumption: that factoring the modulus back into its primes is infeasible. Every attack in this project is a way that assumption quietly stops being true.</p>
-          <figure class="diagram">
-            <div class="scroll"><svg viewBox="0 0 906 120" role="img" aria-label="Pick primes then Modulus then Keys then Encrypt then Decrypt"><rect class="d-box mine" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Pick primes</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">p and q, secret</text><path class="d-line" d="M162,60 L190,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Modulus</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">n = p × q</text><path class="d-line accent" d="M346,60 L374,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Keys</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">public e, private d</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Encrypt</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">with (n, e)</text><path class="d-line" d="M714,60 L742,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="746" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="821.0" y="54" text-anchor="middle">Decrypt</text><text class="d-text small" x="821.0" y="74" text-anchor="middle">with d</text></svg></div>
-            <figcaption><b>Figure 1.</b> RSA key generation and use. The highlighted steps are where real-world mistakes creep in.</figcaption>
+          <h2>RSA from first principles</h2>
+          <div class="steps">
+            <div class="step"><h4>Pick two primes</h4><p>Choose large random primes p and q and keep them secret.</p></div>
+            <div class="step"><h4>Make the modulus</h4><p>Publish n = p × q. Everyone sees n; only you know its factors.</p></div>
+            <div class="step"><h4>Choose exponents</h4><p>Pick a public exponent e (commonly 65,537) and compute the private exponent d so that e × d ≡ 1 (mod (p−1)(q−1)). Computing d requires knowing p and q.</p></div>
+            <div class="step"><h4>Encrypt and decrypt</h4><p>Encryption is c = m<sup>e</sup> mod n. Decryption is m = c<sup>d</sup> mod n. The security rests entirely on factoring n being infeasible.</p></div>
+          </div>
+          <figure class="diagram sx-lab">
+            <div class="sx-lab-head"><span class="sx-dot"></span>Toy RSA with tiny primes<em>interactive</em></div>
+            <div class="sx-rsa">
+              <div class="controls"><label>p <select id="rp"></select></label><label>q <select id="rq"></select></label><label>message m <input id="rm" type="number" min="2" value="42" style="width:80px"></label></div>
+              <div class="sx-rsa-out" id="rout"></div>
+            </div>
+            <figcaption><b>Figure 1.</b> Real keys use primes hundreds of digits long; with tiny ones you can watch every step, and see why small keys are breakable: anyone can factor n by hand.</figcaption>
           </figure>
         </section>
-        <section id="work">
+        <section id="attacks">
           <div class="part-label">The attacks</div>
-          <h2>Where good maths meets bad choices</h2>
-          <div class="steps">
-            <div class="step"><h4>Keys that are too small</h4><p>A modulus short enough can simply be factored with ordinary computing power, and once you have the primes you have the private key.</p></div>
-            <div class="step"><h4>Primes shared between keys</h4><p>If two different public keys accidentally share a prime, a single greatest-common-divisor computation reveals it, and both keys fall. This has happened at internet scale with badly seeded devices.</p></div>
-            <div class="step"><h4>Primes too close together</h4><p>If p and q are nearly equal, Fermat's factorisation method finds them quickly from the square root of the modulus.</p></div>
-            <div class="step"><h4>Exponents and messages that are too small</h4><p>With a tiny public exponent and no padding, some messages can be recovered with nothing more than an integer root.</p></div>
-          </div>
-          <div class="callout why"><h5>The pattern</h5><p>None of these attacks break RSA itself. They exploit the gap between the textbook algorithm and a real deployment: randomness, key sizes, padding. That gap is where most real cryptographic failures live.</p></div>
+          <h2>Four ways good maths meets bad choices</h2>
+          <div class="sx-cards"><div class="sx-card mint"><h4>1 · Keys that are too small</h4><p>If n is short enough, ordinary factoring algorithms recover p and q in seconds. Once you have them, computing d is trivial and every message is readable.</p><p class="sx-fix">Fix: 2048-bit keys or larger, or elliptic-curve cryptography.</p></div><div class="sx-card yellow"><h4>2 · Primes shared between keys</h4><p>Two different public keys that accidentally share a prime fall to one greatest-common-divisor computation: gcd(n₁, n₂) = the shared prime. This has really happened at internet scale, with devices that generated keys from poor randomness at boot.</p><p class="sx-fix">Fix: cryptographically secure randomness, properly seeded.</p></div><div class="sx-card peach"><h4>3 · Primes too close together</h4><p>If p and q are nearly equal, both are close to √n. Fermat's method searches outward from √n and finds them almost immediately, no matter how large n is.</p><p class="sx-fix">Fix: generate p and q independently with a library that enforces a minimum gap.</p></div><div class="sx-card lav"><h4>4 · Small exponents, no padding</h4><p>With a tiny e (like 3) and a short message, m<sup>e</sup> may never wrap around n, so the "ciphertext" is just an ordinary cube and an integer cube root recovers the message.</p><p class="sx-fix">Fix: never use "textbook" RSA; always use OAEP padding.</p></div></div>
+          <figure class="diagram"><div class="scroll"><svg viewBox="0 0 640 170" role="img" aria-label="Two public keys sharing one prime: gcd reveals it">
+            <rect class="d-box vm" x="20" y="20" width="250" height="56" rx="12"></rect><text class="d-text strong" x="145" y="44" text-anchor="middle">Key A:  n₁ = p × q₁</text><text class="d-text small" x="145" y="62" text-anchor="middle">looks fine on its own</text>
+            <rect class="d-box vm" x="20" y="96" width="250" height="56" rx="12"></rect><text class="d-text strong" x="145" y="120" text-anchor="middle">Key B:  n₂ = p × q₂</text><text class="d-text small" x="145" y="138" text-anchor="middle">looks fine on its own</text>
+            <path class="d-line accent" d="M272,48 L380,84" marker-end="url(#arrA)"></path><path class="d-line accent" d="M272,124 L380,92" marker-end="url(#arrA)"></path>
+            <rect class="d-box mine" x="384" y="62" width="236" height="56" rx="12"></rect><text class="d-text strong" x="502" y="86" text-anchor="middle">gcd(n₁, n₂) = p</text><text class="d-text small" x="502" y="104" text-anchor="middle">both keys fully broken in one step</text>
+          </svg></div><figcaption><b>Figure 2.</b> The shared-prime attack. Neither key is weak alone; together they give themselves away.</figcaption></figure>
         </section>
         <section id="defend">
           <div class="part-label">Defence</div>
-          <h2>How to defend against it</h2>
+          <h2>How to do it properly</h2>
           <dl class="gloss">
-            <div><dt>Use vetted libraries</dt><dd>Let well-reviewed libraries generate keys and handle padding; never implement the primitives yourself.</dd></div>
-            <div><dt>Modern parameters</dt><dd>2048-bit or larger RSA keys, or modern elliptic-curve schemes.</dd></div>
-            <div><dt>Proper padding</dt><dd>OAEP for encryption and PSS for signatures, never raw "textbook" RSA.</dd></div>
-            <div><dt>Good randomness</dt><dd>Key generation must use a cryptographically secure random source, seeded properly.</dd></div>
+            <div><dt>Use vetted libraries</dt><dd>Let a well-reviewed library generate keys and handle padding; never hand-roll the primitives.</dd></div>
+            <div><dt>Modern parameters</dt><dd>RSA-2048 or larger, or move to elliptic-curve schemes (e.g. X25519, Ed25519).</dd></div>
+            <div><dt>Always pad</dt><dd>OAEP for encryption and PSS for signatures; textbook RSA is never safe.</dd></div>
+            <div><dt>Good randomness</dt><dd>Keys must come from a cryptographically secure RNG with enough entropy, especially on embedded devices.</dd></div>
+            <div><dt>Plan for rotation</dt><dd>Assume keys will one day need replacing, and make that routine.</dd></div>
           </dl>
         </section>
         <section id="lessons">
           <div class="part-label">Looking back</div>
           <h2>What it taught me</h2>
           <ol class="lessons">
-            <li><b>Security lives in the details.</b> The algorithm was fine every time; the parameters were not.</li>
-            <li><b>Small maths, big consequences.</b> A one-line GCD can break keys that look strong.</li>
-            <li><b>Trust the libraries.</b> Understanding the attacks is exactly why I would never hand-roll crypto in production.</li>
+            <li><b>Security lives in the details.</b> The algorithm was sound every time; parameters and randomness were not.</li>
+            <li><b>Small maths, big consequences.</b> A one-line GCD broke keys that looked strong.</li>
+            <li><b>Understanding attacks is why you trust libraries.</b> Seeing how easily these fail is exactly why I would never implement crypto by hand in production.</li>
           </ol>
         </section>
         <section id="terms">
           <div class="part-label">Reference</div>
           <h2>Key terms</h2>
           <dl class="gloss">
-            <div><dt>RSA</dt><dd>A public-key system whose security rests on the difficulty of factoring large numbers.</dd></div>
-            <div><dt>modulus</dt><dd>The public product n = p × q.</dd></div>
-            <div><dt>GCD</dt><dd>Greatest common divisor; reveals a shared prime between two moduli.</dd></div>
-            <div><dt>Fermat factorisation</dt><dd>A method that quickly factors n when its two primes are close together.</dd></div>
-            <div><dt>padding (OAEP)</dt><dd>Randomised structure added before encryption so textbook attacks fail.</dd></div>
+            <div><dt>RSA</dt><dd>Public-key cryptosystem resting on the difficulty of factoring large numbers.</dd></div>
+            <div><dt>modulus n</dt><dd>The public product p × q.</dd></div>
+            <div><dt>φ(n)</dt><dd>(p−1)(q−1); needed to compute the private exponent.</dd></div>
+            <div><dt>modular inverse</dt><dd>The d with e × d ≡ 1 (mod φ(n)).</dd></div>
+            <div><dt>GCD</dt><dd>Greatest common divisor; exposes a prime shared by two moduli.</dd></div>
+            <div><dt>Fermat factorisation</dt><dd>Finds p and q quickly when they are close to √n.</dd></div>
+            <div><dt>OAEP</dt><dd>Randomised padding that makes textbook attacks fail.</dd></div>
           </dl>
         </section>
 
@@ -146,6 +158,17 @@
   </main>
 
   <script src="../../shared/walkthrough.js"></script>
-<script src="../../shared/kutcher.js?v=6"></script>
+<script src="../../shared/kutcher.js?v=7"></script>
+<script>
+(function(){var P=[11,13,17,19,23,29,31,37,41,43,47,53,59,61],sp=document.getElementById('rp'),sq=document.getElementById('rq'),sm=document.getElementById('rm'),o=document.getElementById('rout');if(!sp)return;
+P.forEach(function(p,i){sp.add(new Option(p,p,false,i==5));sq.add(new Option(p,p,false,i==9));});
+function g(a,b){while(b){var t=b;b=a%b;a=t;}return a;}
+function inv(e,m){var t=0,nt=1,r=m,nr=e;while(nr){var q=Math.floor(r/nr);var a=nt;nt=t-q*nt;t=a;a=nr;nr=r-q*nr;r=a;}return t<0?t+m:t;}
+function pw(b,e,m){var r=1n,B=BigInt(b)%BigInt(m),E=BigInt(e),M=BigInt(m);while(E>0n){if(E&1n)r=r*B%M;B=B*B%M;E>>=1n;}return Number(r);}
+function run(){var p=+sp.value,q=+sq.value;if(p==q){o.innerHTML='<p class="sx-verdict warn">Pick two different primes.</p>';return;}
+var n=p*q,ph=(p-1)*(q-1),e=3;while(g(e,ph)!=1)e+=2;var d=inv(e,ph),m=Math.max(2,Math.min(n-1,+sm.value||2)),c=pw(m,e,n),back=pw(c,d,n);
+o.innerHTML='<div class="sx-kv"><span>n = p × q</span><b>'+n+'</b></div><div class="sx-kv"><span>φ(n) = (p−1)(q−1)</span><b>'+ph+'</b></div><div class="sx-kv"><span>public e</span><b>'+e+'</b></div><div class="sx-kv"><span>private d</span><b>'+d+'</b></div><div class="sx-kv"><span>ciphertext c = m^e mod n</span><b>'+c+'</b></div><div class="sx-kv"><span>decrypted c^d mod n</span><b>'+back+'</b></div><p class="sx-verdict bad">An attacker who factors n = '+n+' back into '+p+' × '+q+' can compute d exactly as above. That is why real primes are enormous.</p>';}
+[sp,sq,sm].forEach(function(x){x.addEventListener('input',run);});run();})();
+</script>
 </body>
 </html>

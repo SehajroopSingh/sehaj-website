@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Log4Shell · CVE-2021-44228</title>
-  <meta name="description" content="Understanding and safely reproducing the Log4Shell remote code execution vulnerability in a lab.">
+  <meta name="description" content="The December 2021 Log4Shell incident: how Log4j, JNDI and LDAP chained into remote code execution, reproduced safely in a lab, with layered defences.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
   <link rel="stylesheet" href="../../shared/walkthrough.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=7">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -54,8 +54,8 @@
     <section class="hero">
       <div class="eyebrow">Information security · lab project</div>
       <h1>Log4Shell: one log line, full remote control</h1>
-      <p class="lede">In late 2021 a single string written to a log file could take over servers across the internet. I worked through Log4Shell hands-on in an isolated lab: how three ordinary features chain into remote code execution, and how defenders find and shut it down.</p>
-      <div class="tags"><span class="tag">Java</span><span class="tag">Log4j</span><span class="tag">JNDI</span><span class="tag">LDAP</span><span class="tag">incident response</span><span class="tag">~5 min read</span></div>
+      <p class="lede">In December 2021 a single string written to a log file could take over servers across the internet. I worked through Log4Shell hands-on in an isolated lab: the incident timeline, how three ordinary features chain into remote code execution, and how defenders find and shut it down.</p>
+      <div class="tags"><span class="tag">Java</span><span class="tag">Log4j</span><span class="tag">JNDI</span><span class="tag">LDAP</span><span class="tag">incident response</span><span class="tag">~7 min read</span></div>
     </section>
 
     <div class="walk">
@@ -64,9 +64,10 @@
           <summary>On this page</summary>
           <ol>
             <li><a href="#summary">The 30-second version</a></li>
-            <li><a href="#idea">Why it matters</a></li>
-            <li><a href="#work">The work</a></li>
-            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#timeline">The incident</a></li>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#work">Reproducing it</a></li>
+            <li><a href="#defend">Defences</a></li>
             <li><a href="#lessons">What it taught me</a></li>
             <li><a href="#terms">Key terms</a></li>
           </ol>
@@ -78,61 +79,71 @@
           <div class="tldr">
             <h2>The 30-second version</h2>
             <ul>
-              <li><strong>Did:</strong> studied and reproduced, in an isolated lab, Log4Shell (CVE-2021-44228), the 2021 Apache Log4j vulnerability that let attackers run code on servers simply by getting a string written to a log.</li>
-              <li><strong>Covered:</strong> how Log4j's lookup feature, Java's JNDI and an LDAP server chain together into remote code execution, and how defenders detect and mitigate it.</li>
-              <li><strong>Learned:</strong> how a convenience feature deep in a dependency became one of the most serious vulnerabilities in years.</li>
+              <li><strong>Did:</strong> studied and safely reproduced, in an isolated lab, Log4Shell (CVE-2021-44228): the December 2021 flaw in Apache Log4j that let attackers run code on a server just by getting a string written to its logs.</li>
+              <li><strong>Covered:</strong> Log4j's lookup substitution, Java's JNDI directory API, LDAP, and how they chain into remote code execution; then detection and mitigation.</li>
+              <li><strong>Why it is famous:</strong> rated CVSS 10.0, the maximum, and present deep inside a vast number of Java products, many of whose owners did not know they used Log4j at all.</li>
             </ul>
           </div>
         </section>
-        <section id="idea">
-          <div class="part-label">Background</div>
+        <section id="timeline">
+          <div class="part-label">The incident</div>
+          <h2>December 2021, day by day</h2>
+          <ol class="sx-time">
+            <li><b>Nov 24, 2021</b><span>Alibaba Cloud's security team privately reports the flaw to the Apache Software Foundation.</span></li>
+            <li class="hot"><b>Dec 9–10</b><span>Exploit details become public; CVE-2021-44228 is published and Log4j 2.15.0 is released. Mass scanning begins within hours.</span></li>
+            <li><b>Dec 13–14</b><span>2.15.0 proves incomplete (CVE-2021-45046); 2.16.0 removes message lookups entirely and disables JNDI by default.</span></li>
+            <li><b>Dec 17–18</b><span>A denial-of-service issue (CVE-2021-45105) is fixed in 2.17.0.</span></li>
+            <li><b>Dec 28</b><span>2.17.1 closes a further, harder-to-exploit configuration issue (CVE-2021-44832).</span></li>
+          </ol>
+          <p class="sx-cap">Four security releases in under three weeks: a reminder that the first patch for a critical bug is often not the last.</p>
+        </section>
+        <section id="how">
+          <div class="part-label">How it works</div>
           <h2>One log line, full remote control</h2>
-          <p>Log4j is a logging library used in a huge share of Java software. It supported "lookups": placeholders inside a logged message that get replaced with a value at runtime. One kind of lookup used JNDI, Java's directory service API, which can fetch objects from a remote server. So if an attacker could get a specially crafted string logged, for example in a username or an HTTP header, the server would reach out to the attacker's directory server and end up loading and running code from it.</p>
+          <p>Log4j supported <b>lookups</b>: placeholders written as <code>${prefix:name}</code> inside a log message that are replaced with a value at runtime, handy for adding things like environment details to logs. One prefix used <b>JNDI</b>, Java's API for looking up objects in naming and directory services, including remote ones over <b>LDAP</b>. Log4j performed lookups on the <em>whole message</em>, including parts that came from users.</p>
           <figure class="diagram">
-            <div class="scroll"><svg viewBox="0 0 906 120" role="img" aria-label="Attacker string then Server logs it then Lookup then Remote class then Code runs"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Attacker string</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">in a header</text><path class="d-line" d="M162,60 L190,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Server logs it</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">Log4j</text><path class="d-line accent" d="M346,60 L374,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Lookup</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">JNDI → LDAP</text><path class="d-line accent" d="M530,60 L558,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Remote class</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">fetched</text><path class="d-line" d="M714,60 L742,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="746" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="821.0" y="54" text-anchor="middle">Code runs</text><text class="d-text small" x="821.0" y="74" text-anchor="middle">on the server</text></svg></div>
-            <figcaption><b>Figure 1.</b> The Log4Shell chain. Every step is a documented feature; together they turn "write this to the log" into "run my code".</figcaption>
+            <div class="scroll"><svg viewBox="0 0 830 370" role="img" aria-label="Sequence diagram: request with crafted string in a header; logs the header; Log4j sees a JNDI lookup; server makes an outbound LDAP query; reply points to a remote Java class; downloads the class; loads and runs it: remote code execution"><rect class="d-box vm" x="25.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="95.0" y="30" text-anchor="middle">Attacker</text><path class="d-line" d="M95.0,42 L95.0,360" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box mine" x="195.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="265.0" y="30" text-anchor="middle">Vulnerable server</text><path class="d-line" d="M265.0,42 L265.0,360" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box vm" x="365.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="435.0" y="30" text-anchor="middle">Attacker&#x27;s LDAP server</text><path class="d-line" d="M435.0,42 L435.0,360" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box vm" x="535.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="605.0" y="30" text-anchor="middle">Attacker&#x27;s web server</text><path class="d-line" d="M605.0,42 L605.0,360" style="stroke-dasharray:3 4;opacity:.6"></path><path class="d-line accent" d="M99.0,76 L259.0,76" marker-end="url(#arrA)"></path><text class="d-text small" x="180.0" y="69" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">1. request with crafted string in a header</text><path class="d-line accent" d="M265.0,116 h34 v18 h-30" marker-end="url(#arrA)"></path><text class="d-text small" x="305.0" y="128" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">2. logs the header; Log4j sees a JNDI lookup</text><path class="d-line accent" d="M269.0,172 L429.0,172" marker-end="url(#arrA)"></path><text class="d-text small" x="350.0" y="165" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">3. server makes an outbound LDAP query</text><path class="d-line" d="M431.0,220 L271.0,220" marker-end="url(#arr)"></path><text class="d-text small" x="350.0" y="213" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">4. reply points to a remote Java class</text><path class="d-line accent" d="M269.0,268 L599.0,268" marker-end="url(#arrA)"></path><text class="d-text small" x="435.0" y="261" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">5. downloads the class</text><path class="d-line accent" d="M265.0,308 h34 v18 h-30" marker-end="url(#arrA)"></path><text class="d-text small" x="305.0" y="320" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">6. loads and runs it: remote code execution</text></svg></div>
+            <figcaption><b>Figure 1.</b> The Log4Shell chain. Each step is a documented feature; composed together they turn "log this text" into "run my code".</figcaption>
           </figure>
+          <div class="callout why"><h5>Why it spread so fast</h5><p>The vulnerable code lived several layers down in other libraries and products. Many organisations could not answer the simple question "do we use Log4j?", so exposure lasted for weeks. That experience is a big reason software bills of materials (SBOMs) became standard practice.</p></div>
         </section>
         <section id="work">
           <div class="part-label">The work</div>
-          <h2>Understanding it hands-on</h2>
+          <h2>Reproducing it safely</h2>
           <div class="steps">
-            <div class="step"><h4>Learn the pieces</h4><p>Java, Log4j's lookup substitution, JNDI and LDAP, and how they normally fit together.</p></div>
-            <div class="step"><h4>Trace the chain</h4><p>Follow a request from the logged string to the outbound lookup and the class being loaded.</p></div>
-            <div class="step"><h4>Reproduce safely</h4><p>Recreate the behaviour against a deliberately vulnerable service in a closed lab environment.</p></div>
-            <div class="step"><h4>Detect and mitigate</h4><p>Look at the traces it leaves (unexpected outbound connections, tell-tale strings in logs) and at what stops it.</p></div>
+            <div class="step"><h4>Learn the building blocks</h4><p>Java class loading, Log4j's lookup syntax, JNDI and LDAP, and how they normally interact.</p></div>
+            <div class="step"><h4>Stand up the lab</h4><p>Run the vulnerable service and the supporting LDAP and HTTP servers entirely inside the isolated VM, with nothing reachable from outside.</p></div>
+            <div class="step"><h4>Trace the chain</h4><p>Follow a logged string through the lookup, the outbound connection and the class load, confirming each hop in logs and network traffic.</p></div>
+            <div class="step"><h4>Look at it as a defender</h4><p>Identify the traces left behind (lookup strings in logs, unexpected outbound LDAP connections from an app server) and what breaks the chain at each step.</p></div>
           </div>
-          <div class="callout why"><h5>Why it was so bad</h5><p>Log4j was buried several layers deep in countless products, so many organisations did not even know they used it. Inventorying dependencies became an emergency overnight, which is why software bills of materials (SBOMs) suddenly mattered.</p></div>
         </section>
         <section id="defend">
           <div class="part-label">Defence</div>
-          <h2>How to defend against it</h2>
-          <dl class="gloss">
-            <div><dt>Patch</dt><dd>Upgrade Log4j; fixed versions disable the dangerous lookups.</dd></div>
-            <div><dt>Know your dependencies</dt><dd>Dependency scanning and SBOMs answer "are we affected?" in minutes.</dd></div>
-            <div><dt>Egress filtering</dt><dd>Servers rarely need to open arbitrary outbound connections; blocking that breaks the chain.</dd></div>
-            <div><dt>Treat input as data</dt><dd>Never let logged user input be interpreted; WAF rules buy time but are not a fix.</dd></div>
-          </dl>
+          <h2>Breaking the chain at every link</h2>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Layer</th><th>Defence</th><th>Breaks which step</th></tr></thead><tbody><tr><td>Library</td><td>Upgrade Log4j (2.17.1+ for Java 8)</td><td>The lookup never happens</td></tr><tr><td>Inventory</td><td>Dependency scanning and SBOMs</td><td>Lets you find every affected system in minutes</td></tr><tr><td>Network</td><td>Egress filtering: app servers should not open arbitrary outbound connections</td><td>The LDAP query and class download fail</td></tr><tr><td>Runtime</td><td>Modern Java defaults restrict remote class loading</td><td>The remote class is not executed</td></tr><tr><td>Detection</td><td>Alert on lookup strings in logs and on unusual outbound traffic</td><td>Spots attempts and compromises</td></tr><tr><td>Perimeter</td><td>WAF rules (temporary)</td><td>Buys time; easily bypassed by obfuscation, so not a fix</td></tr></tbody></table></div>
         </section>
         <section id="lessons">
           <div class="part-label">Looking back</div>
           <h2>What it taught me</h2>
           <ol class="lessons">
-            <li><b>Your dependencies are your attack surface.</b> The vulnerable code was not written by any of the companies that got hit.</li>
+            <li><b>Your dependencies are your attack surface.</b> None of the hardest-hit companies wrote the vulnerable code.</li>
             <li><b>Features compose into exploits.</b> No single step was a bug on its own.</li>
-            <li><b>Real CVEs teach best.</b> Working through a famous incident made patching and inventory feel urgent, not bureaucratic.</li>
+            <li><b>Egress control is underrated.</b> Blocking unexpected outbound traffic would have stopped most real-world exploitation.</li>
+            <li><b>Real incidents teach best.</b> Working through a famous CVE made patching and inventory feel urgent, not bureaucratic.</li>
           </ol>
         </section>
         <section id="terms">
           <div class="part-label">Reference</div>
           <h2>Key terms</h2>
           <dl class="gloss">
-            <div><dt>CVE</dt><dd>A public identifier for a known vulnerability.</dd></div>
-            <div><dt>Log4j</dt><dd>A widely used Java logging library.</dd></div>
-            <div><dt>JNDI</dt><dd>Java Naming and Directory Interface: an API for looking up (including remote) objects.</dd></div>
-            <div><dt>LDAP</dt><dd>A directory protocol that can serve those objects.</dd></div>
-            <div><dt>RCE</dt><dd>Remote code execution: running attacker code on someone else's machine.</dd></div>
-            <div><dt>SBOM</dt><dd>Software bill of materials: an inventory of a product's dependencies.</dd></div>
+            <div><dt>CVE</dt><dd>Common Vulnerabilities and Exposures: a public ID for a known flaw.</dd></div>
+            <div><dt>CVSS</dt><dd>A 0–10 severity score; Log4Shell scored 10.0.</dd></div>
+            <div><dt>Log4j</dt><dd>A very widely used Java logging library.</dd></div>
+            <div><dt>lookup</dt><dd>A ${prefix:name} placeholder Log4j replaces at runtime.</dd></div>
+            <div><dt>JNDI</dt><dd>Java Naming and Directory Interface: looks up objects, including remote ones.</dd></div>
+            <div><dt>LDAP</dt><dd>A directory protocol that can serve such objects.</dd></div>
+            <div><dt>RCE</dt><dd>Remote code execution.</dd></div>
+            <div><dt>SBOM</dt><dd>Software bill of materials: an inventory of every dependency in a product.</dd></div>
           </dl>
         </section>
 
@@ -147,6 +158,6 @@
   </main>
 
   <script src="../../shared/walkthrough.js"></script>
-<script src="../../shared/kutcher.js?v=6"></script>
+<script src="../../shared/kutcher.js?v=7"></script>
 </body>
 </html>

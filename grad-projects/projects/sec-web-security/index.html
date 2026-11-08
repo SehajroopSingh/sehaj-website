@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Web Security · XSS and CSRF</title>
-  <meta name="description" content="Cross-site scripting and cross-site request forgery against an intentionally vulnerable web app.">
+  <meta name="description" content="Cross-site scripting and cross-site request forgery against an intentionally vulnerable web app, and the defences that close them.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
   <link rel="stylesheet" href="../../shared/walkthrough.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=7">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -54,8 +54,8 @@
     <section class="hero">
       <div class="eyebrow">Information security · lab project</div>
       <h1>Web security: making a browser betray its user</h1>
-      <p class="lede">Two of the most common web bugs come from the browser doing exactly what it is designed to do. I found and demonstrated cross-site scripting and cross-site request forgery in a deliberately vulnerable app, then mapped each one to the defence that actually closes it.</p>
-      <div class="tags"><span class="tag">JavaScript</span><span class="tag">HTML</span><span class="tag">HTTP</span><span class="tag">cookies</span><span class="tag">XSS · CSRF</span><span class="tag">~5 min read</span></div>
+      <p class="lede">Two of the most common web vulnerabilities come from the browser doing exactly what it was designed to do. I found and demonstrated cross-site scripting and cross-site request forgery in a deliberately vulnerable app, then mapped each one to the defence that actually closes it.</p>
+      <div class="tags"><span class="tag">JavaScript</span><span class="tag">HTML</span><span class="tag">HTTP</span><span class="tag">cookies</span><span class="tag">XSS · CSRF</span><span class="tag">~8 min read</span></div>
     </section>
 
     <div class="walk">
@@ -64,9 +64,10 @@
           <summary>On this page</summary>
           <ol>
             <li><a href="#summary">The 30-second version</a></li>
-            <li><a href="#idea">Why it matters</a></li>
+            <li><a href="#xss">Attack 1 · XSS</a></li>
+            <li><a href="#csrf">Attack 2 · CSRF</a></li>
             <li><a href="#work">The work</a></li>
-            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#defend">Defences</a></li>
             <li><a href="#lessons">What it taught me</a></li>
             <li><a href="#terms">Key terms</a></li>
           </ol>
@@ -78,59 +79,66 @@
           <div class="tldr">
             <h2>The 30-second version</h2>
             <ul>
-              <li><strong>Did:</strong> found and demonstrated two of the most common web vulnerabilities, cross-site scripting (XSS) and cross-site request forgery (CSRF), against an intentionally vulnerable web app.</li>
-              <li><strong>Covered:</strong> how browsers decide what code to trust, how sessions and cookies work, and how sanitisers fail when they block the wrong things.</li>
-              <li><strong>Learned:</strong> to see a web page the way an attacker does, and which defences actually close each hole.</li>
+              <li><strong>Did:</strong> found and demonstrated cross-site scripting (XSS) and cross-site request forgery (CSRF) in a deliberately vulnerable web application, then mapped each to the defence that actually closes it.</li>
+              <li><strong>Core idea:</strong> browsers make two trust decisions automatically: they run any script that appears to come from a site, and they attach your cookies to any request sent to that site. XSS abuses the first, CSRF the second.</li>
+              <li><strong>Learned:</strong> why blocklist filters fail, why the fix depends on <em>where</em> data lands in a page, and how much of web security is good framework defaults.</li>
             </ul>
           </div>
         </section>
-        <section id="idea">
-          <div class="part-label">Background</div>
-          <h2>Two ways to make a browser betray its user</h2>
-          <p>Browsers trust code that comes from a site, and they attach your cookies to any request sent to that site. XSS abuses the first: if a site echoes user input back into a page without encoding it, an attacker's script runs as if the site wrote it, with access to the page and the user's session. CSRF abuses the second: a page on another site quietly triggers a request to the real one, and the browser helpfully sends the victim's cookies along.</p>
+        <section id="xss">
+          <div class="part-label">Attack 1</div>
+          <h2>Cross-site scripting: getting the site to run your code</h2>
+          <p>If a site takes user input (a comment, a profile field, a search term) and puts it back into a page without encoding it, the browser cannot tell the difference between the site's own code and code the attacker typed. That script then runs with the site's full privileges: it can read the page, act as the logged-in user and send data elsewhere. <b>Stored</b> XSS is saved and served to every visitor; <b>reflected</b> XSS bounces back from a single crafted link.</p>
           <figure class="diagram">
-            <div class="scroll"><svg viewBox="0 0 906 120" role="img" aria-label="Victim then Malicious page then Forged request then Browser then App"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Victim</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">logged in</text><path class="d-line" d="M162,60 L190,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Malicious page</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">attacker&#x27;s site</text><path class="d-line accent" d="M346,60 L374,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Forged request</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">to the real app</text><path class="d-line accent" d="M530,60 L558,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Browser</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">adds cookies</text><path class="d-line" d="M714,60 L742,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="746" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="821.0" y="54" text-anchor="middle">App</text><text class="d-text small" x="821.0" y="74" text-anchor="middle">acts as victim</text></svg></div>
-            <figcaption><b>Figure 1.</b> Cross-site request forgery: the app sees a perfectly valid, authenticated request and has no way to tell the user never meant to send it.</figcaption>
+            <div class="scroll"><svg viewBox="0 0 660 322" role="img" aria-label="Sequence diagram: submits a comment containing script; stores it without encoding; victim opens the page; page includes the attacker&#x27;s script; script runs as the site"><rect class="d-box vm" x="25.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="95.0" y="30" text-anchor="middle">Attacker</text><path class="d-line" d="M95.0,42 L95.0,312" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box vm" x="195.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="265.0" y="30" text-anchor="middle">Web app</text><path class="d-line" d="M265.0,42 L265.0,312" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box mine" x="365.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="435.0" y="30" text-anchor="middle">Victim&#x27;s browser</text><path class="d-line" d="M435.0,42 L435.0,312" style="stroke-dasharray:3 4;opacity:.6"></path><path class="d-line accent" d="M99.0,76 L259.0,76" marker-end="url(#arrA)"></path><text class="d-text small" x="180.0" y="69" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">1. submits a comment containing script</text><path class="d-line" d="M265.0,116 h34 v18 h-30" marker-end="url(#arr)"></path><text class="d-text small" x="305.0" y="128" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">2. stores it without encoding</text><path class="d-line" d="M431.0,172 L271.0,172" marker-end="url(#arr)"></path><text class="d-text small" x="350.0" y="165" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">3. victim opens the page</text><path class="d-line accent" d="M269.0,220 L429.0,220" marker-end="url(#arrA)"></path><text class="d-text small" x="350.0" y="213" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">4. page includes the attacker&#x27;s script</text><path class="d-line accent" d="M435.0,260 h34 v18 h-30" marker-end="url(#arrA)"></path><text class="d-text small" x="475.0" y="272" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">5. script runs as the site</text></svg></div>
+            <figcaption><b>Figure 1.</b> Stored XSS. The victim never visits anything suspicious: the trusted site itself delivers the attacker's code.</figcaption>
+          </figure>
+          <p>A big part of the work was understanding <em>context</em>. A filter that strips one obvious tag may still let through input that lands inside an HTML attribute, a JavaScript string or a URL, where entirely different characters matter.</p>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Where input lands</th><th>Correct defence</th></tr></thead><tbody><tr><td>Between HTML tags</td><td>HTML-encode &lt; &gt; &amp; and quotes</td></tr><tr><td>Inside an HTML attribute</td><td>Attribute-encode, and always quote the attribute</td></tr><tr><td>Inside JavaScript</td><td>JavaScript-encode, or better, pass data via JSON, never by string-building</td></tr><tr><td>In a URL</td><td>URL-encode, and allow only safe schemes (no <code>javascript:</code>)</td></tr></tbody></table></div><p class="sx-cap">Output encoding depends on context. This is why "just filter bad words" never works.</p>
+        </section>
+        <section id="csrf">
+          <div class="part-label">Attack 2</div>
+          <h2>Cross-site request forgery: making the browser act for you</h2>
+          <p>CSRF needs no bug in how the site displays data. The victim is logged in to the real site; while that session is active they visit a page the attacker controls. That page silently submits a request to the real site (change an email, move money, alter settings), and the browser helpfully attaches the victim's session cookie. From the server's point of view it is a perfectly valid, authenticated request.</p>
+          <figure class="diagram">
+            <div class="scroll"><svg viewBox="0 0 660 322" role="img" aria-label="Sequence diagram: logs in; gets a session cookie; later visits attacker&#x27;s page; page contains a hidden auto-submitting form; browser sends request + victim&#x27;s cookie; accepts it: looks legitimate"><rect class="d-box mine" x="25.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="95.0" y="30" text-anchor="middle">Victim&#x27;s browser</text><path class="d-line" d="M95.0,42 L95.0,312" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box vm" x="195.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="265.0" y="30" text-anchor="middle">Attacker&#x27;s page</text><path class="d-line" d="M265.0,42 L265.0,312" style="stroke-dasharray:3 4;opacity:.6"></path><rect class="d-box vm" x="365.0" y="8" width="140" height="34" rx="10"></rect><text class="d-text strong" x="435.0" y="30" text-anchor="middle">Real web app</text><path class="d-line" d="M435.0,42 L435.0,312" style="stroke-dasharray:3 4;opacity:.6"></path><path class="d-line" d="M99.0,76 L429.0,76" marker-end="url(#arr)"></path><text class="d-text small" x="265.0" y="69" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">1. logs in; gets a session cookie</text><path class="d-line" d="M99.0,124 L259.0,124" marker-end="url(#arr)"></path><text class="d-text small" x="180.0" y="117" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">2. later visits attacker&#x27;s page</text><path class="d-line accent" d="M261.0,172 L101.0,172" marker-end="url(#arrA)"></path><text class="d-text small" x="180.0" y="165" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">3. page contains a hidden auto-submitting form</text><path class="d-line accent" d="M99.0,220 L429.0,220" marker-end="url(#arrA)"></path><text class="d-text small" x="265.0" y="213" text-anchor="middle" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">4. browser sends request + victim&#x27;s cookie</text><path class="d-line accent" d="M435.0,260 h34 v18 h-30" marker-end="url(#arrA)"></path><text class="d-text small" x="475.0" y="272" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">5. accepts it: looks legitimate</text></svg></div>
+            <figcaption><b>Figure 2.</b> CSRF. The victim's own browser carries out the attack, credentials included.</figcaption>
           </figure>
         </section>
         <section id="work">
           <div class="part-label">The work</div>
-          <h2>Finding the holes</h2>
+          <h2>How I approached it</h2>
           <div class="steps">
-            <div class="step"><h4>Map the inputs</h4><p>Every field, URL parameter and stored value that ends up rendered on a page is a candidate. Stored inputs are the most dangerous because they hit every visitor.</p></div>
-            <div class="step"><h4>Test the filters</h4><p>Basic sanitisers often block a few obvious patterns and miss equivalent ones. Understanding <em>where</em> the input lands, inside HTML, an attribute or a script, decides what gets through.</p></div>
-            <div class="step"><h4>Demonstrate impact</h4><p>Show what a real attacker would gain, such as reading data from the page or performing an action as the user, in a contained lab.</p></div>
-            <div class="step"><h4>Forge a request</h4><p>For CSRF, build an outside page that triggers a state-changing action on the app, proving the app could not tell a forged request from a real one.</p></div>
+            <div class="step"><h4>Map every input</h4><p>List every field, URL parameter and stored value that ends up rendered somewhere, and every action that changes state.</p></div>
+            <div class="step"><h4>Probe the filters</h4><p>Work out what the sanitiser blocks and, more importantly, the context each input lands in, which decides what it misses.</p></div>
+            <div class="step"><h4>Demonstrate impact safely</h4><p>Show what an attacker would actually gain inside the lab app, rather than just making a pop-up appear.</p></div>
+            <div class="step"><h4>Test state-changing actions for CSRF</h4><p>Check whether important actions can be triggered from another origin without any secret the attacker cannot know.</p></div>
           </div>
         </section>
         <section id="defend">
           <div class="part-label">Defence</div>
-          <h2>How to defend against it</h2>
-          <dl class="gloss">
-            <div><dt>Encode output, by context</dt><dd>Escape data for exactly where it is placed (HTML, attribute, JavaScript); modern frameworks do this by default.</dd></div>
-            <div><dt>Content Security Policy</dt><dd>Tells the browser which scripts may run, which neuters most injected scripts.</dd></div>
-            <div><dt>HttpOnly + SameSite cookies</dt><dd>Scripts cannot read the session cookie, and cross-site requests do not carry it.</dd></div>
-            <div><dt>CSRF tokens</dt><dd>A secret per-session value that a forged request cannot know.</dd></div>
-          </dl>
+          <h2>The defences that actually work</h2>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Defence</th><th>Stops</th><th>How</th></tr></thead><tbody><tr><td>Context-aware output encoding</td><td>XSS</td><td>Templates encode data for where it lands; modern frameworks (React, Django, Rails) do it by default</td></tr><tr><td>Content Security Policy</td><td>XSS impact</td><td>Tells the browser which scripts may run; injected inline scripts are refused</td></tr><tr><td>HttpOnly cookies</td><td>Session theft via XSS</td><td>Scripts cannot read the session cookie</td></tr><tr><td>SameSite cookies</td><td>CSRF</td><td>Browser does not attach the cookie to cross-site requests</td></tr><tr><td>CSRF tokens</td><td>CSRF</td><td>A per-session secret the attacker's page cannot read or guess</td></tr><tr><td>Re-authentication for sensitive actions</td><td>Both</td><td>Password or MFA prompt before changing email, password or payment details</td></tr></tbody></table></div>
         </section>
         <section id="lessons">
           <div class="part-label">Looking back</div>
           <h2>What it taught me</h2>
           <ol class="lessons">
-            <li><b>Blocklists lose.</b> Filtering "bad" strings fails; encoding output by context succeeds.</li>
-            <li><b>The browser is part of the system.</b> Security decisions happen client-side too, and you have to design for them.</li>
-            <li><b>Defaults matter.</b> Most of these bugs disappear with a modern framework's safe defaults left switched on.</li>
+            <li><b>Blocklists lose.</b> Filtering "bad" input fails; encoding output by context succeeds.</li>
+            <li><b>The browser is part of your system.</b> Its automatic trust decisions are where both attacks live.</li>
+            <li><b>Defaults are security.</b> Most of these bugs disappear with a modern framework's safe defaults left switched on.</li>
           </ol>
         </section>
         <section id="terms">
           <div class="part-label">Reference</div>
           <h2>Key terms</h2>
           <dl class="gloss">
-            <div><dt>XSS</dt><dd>Cross-site scripting: attacker-controlled script running in a trusted site's page.</dd></div>
-            <div><dt>stored vs reflected XSS</dt><dd>Saved and shown to every visitor / bounced back from a single request.</dd></div>
-            <div><dt>CSRF</dt><dd>Cross-site request forgery: tricking a logged-in browser into sending a request.</dd></div>
-            <div><dt>CSP</dt><dd>Content Security Policy: a browser rule set limiting which scripts can run.</dd></div>
-            <div><dt>SameSite</dt><dd>A cookie flag that keeps cookies off cross-site requests.</dd></div>
+            <div><dt>XSS</dt><dd>Cross-site scripting: attacker-controlled script running in a trusted page.</dd></div>
+            <div><dt>stored / reflected</dt><dd>Saved and served to everyone / bounced back from one request.</dd></div>
+            <div><dt>CSRF</dt><dd>Cross-site request forgery: making a logged-in browser send an unwanted request.</dd></div>
+            <div><dt>same-origin policy</dt><dd>The browser rule that scripts can only read data from their own site.</dd></div>
+            <div><dt>CSP</dt><dd>Content Security Policy.</dd></div>
+            <div><dt>SameSite / HttpOnly</dt><dd>Cookie flags limiting cross-site sending / script access.</dd></div>
           </dl>
         </section>
 
@@ -145,6 +153,6 @@
   </main>
 
   <script src="../../shared/walkthrough.js"></script>
-<script src="../../shared/kutcher.js?v=6"></script>
+<script src="../../shared/kutcher.js?v=7"></script>
 </body>
 </html>

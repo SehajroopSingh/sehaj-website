@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Network Forensics · Man-in-the-Middle</title>
-  <meta name="description" content="Investigating a man-in-the-middle attack from packet captures with Wireshark and pyShark.">
+  <meta name="description" content="Investigating a man-in-the-middle attack from packet captures with Wireshark, the RFCs and an automated pyShark analysis.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
   <link rel="stylesheet" href="../../shared/walkthrough.css">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../../shared/kutcher.css?v=6">
+  <link rel="stylesheet" href="../../shared/kutcher.css?v=7">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -54,8 +54,8 @@
     <section class="hero">
       <div class="eyebrow">Information security · lab project</div>
       <h1>Network forensics: investigating a man-in-the-middle attack</h1>
-      <p class="lede">Given recordings of real network traffic, I played the analyst: reconstruct what an attacker sitting between two machines saw, changed and stole, then automate the analysis so it could be run again on the next incident.</p>
-      <div class="tags"><span class="tag">Wireshark</span><span class="tag">pyShark</span><span class="tag">Python</span><span class="tag">TCP/IP</span><span class="tag">HTTP · IRC</span><span class="tag">~5 min read</span></div>
+      <p class="lede">Given recordings of real network traffic, I played the analyst: find how the attacker got between two machines, reconstruct what they read and altered, judge how exposed the stolen credentials were, and automate the analysis for the next incident.</p>
+      <div class="tags"><span class="tag">Wireshark</span><span class="tag">pyShark</span><span class="tag">Python</span><span class="tag">ARP</span><span class="tag">HTTP · IRC</span><span class="tag">~8 min read</span></div>
     </section>
 
     <div class="walk">
@@ -64,9 +64,11 @@
           <summary>On this page</summary>
           <ol>
             <li><a href="#summary">The 30-second version</a></li>
-            <li><a href="#idea">Why it matters</a></li>
+            <li><a href="#idea">The case</a></li>
+            <li><a href="#layers">Layer by layer</a></li>
             <li><a href="#work">The investigation</a></li>
-            <li><a href="#defend">How to defend against it</a></li>
+            <li><a href="#auto">Automation</a></li>
+            <li><a href="#defend">Defence</a></li>
             <li><a href="#lessons">What it taught me</a></li>
             <li><a href="#terms">Key terms</a></li>
           </ol>
@@ -78,60 +80,87 @@
           <div class="tldr">
             <h2>The 30-second version</h2>
             <ul>
-              <li><strong>Did:</strong> a network-forensics investigation: given packet captures of intercepted traffic, work out what the attacker did, which systems and accounts were affected, and what was taken.</li>
-              <li><strong>With:</strong> Wireshark for manual inspection, and a small Python program using pyShark to automate the repetitive parts of the analysis.</li>
-              <li><strong>Learned:</strong> to read protocols at the byte level, to use RFCs as the source of truth for what "normal" looks like, and how much an attacker can see on an unencrypted network.</li>
+              <li><strong>Role:</strong> I acted as the analyst on an incident: given packet captures of intercepted traffic, reconstruct what an attacker positioned between two parties saw, changed and took.</li>
+              <li><strong>Tools:</strong> Wireshark for visual, packet-by-packet inspection; pyShark (a Python wrapper around tshark) to automate the analysis; the protocol RFCs as the definition of "normal"; and password-cracking tools to judge how exposed captured credentials were.</li>
+              <li><strong>Deliverables:</strong> a structured findings file answering the investigation questions, and a small program that repeats the core analysis automatically.</li>
             </ul>
           </div>
         </section>
         <section id="idea">
+          <div class="part-label">The case</div>
+          <h2>What a man in the middle can do</h2>
+          <p>In a man-in-the-middle (MITM) attack, someone inserts themselves into a conversation while both parties believe they are talking directly. On a local network the most common technique is <b>ARP spoofing</b>. Devices find each other by asking "who has this IP address?", and they trust whatever answer arrives. An attacker who keeps answering "the router is me" receives everyone's traffic first and quietly forwards it on.</p>
+          <div class="sx-two">
+<div><svg viewBox="0 0 300 190" role="img" aria-label="Normal network: laptop talks directly to router"><text class="d-text strong" x="150" y="18" text-anchor="middle">Normal</text><rect class="d-box vm" x="20" y="70" width="90" height="44" rx="10"></rect><text class="d-text" x="65" y="96" text-anchor="middle">Laptop</text><rect class="d-box vm" x="190" y="70" width="90" height="44" rx="10"></rect><text class="d-text" x="235" y="96" text-anchor="middle">Router</text><path class="d-line" d="M112,92 L186,92" marker-end="url(#arr)"></path><rect class="d-box core" x="105" y="140" width="90" height="36" rx="10" style="opacity:.5"></rect><text class="d-text small" x="150" y="162" text-anchor="middle">Attacker (idle)</text></svg></div>
+<div><svg viewBox="0 0 300 190" role="img" aria-label="ARP spoofed network: traffic detours through the attacker"><text class="d-text strong" x="150" y="18" text-anchor="middle">After ARP spoofing</text><rect class="d-box vm" x="20" y="60" width="90" height="44" rx="10"></rect><text class="d-text" x="65" y="86" text-anchor="middle">Laptop</text><rect class="d-box vm" x="190" y="60" width="90" height="44" rx="10"></rect><text class="d-text" x="235" y="86" text-anchor="middle">Router</text><rect class="d-box mine" x="105" y="130" width="90" height="44" rx="10"></rect><text class="d-text strong" x="150" y="156" text-anchor="middle">Attacker</text><path class="d-line accent" d="M70,106 L120,128" marker-end="url(#arrA)"></path><path class="d-line accent" d="M182,128 L232,106" marker-end="url(#arrA)"></path><text class="d-text small" x="150" y="44" text-anchor="middle">both sides still think they talk directly</text></svg></div>
+          </div>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>IP address</th><th>MAC the laptop has cached (normal)</th><th>MAC cached after spoofing</th></tr></thead><tbody><tr><td>192.168.1.1 (router)</td><td><code>aa:bb:cc:00:00:01</code></td><td><code>de:ad:be:ef:00:66</code> ← attacker</td></tr><tr><td>192.168.1.50 (attacker)</td><td><code>de:ad:be:ef:00:66</code></td><td><code>de:ad:be:ef:00:66</code></td></tr></tbody></table></div><p class="sx-cap">An illustrative ARP cache (made-up addresses). The tell-tale sign: two IP addresses suddenly mapping to the same hardware address.</p>
+        </section>
+        <section id="layers">
           <div class="part-label">Background</div>
-          <h2>When someone sits in the middle</h2>
-          <p>A man-in-the-middle attack puts the attacker between two parties who think they are talking directly. On a local network the classic route is ARP spoofing: the attacker keeps telling machines "the router is me", so traffic flows through them first. Anything not encrypted, from web logins to chat messages, can then be read or altered.</p>
-          <figure class="diagram">
-            <div class="scroll"><svg viewBox="0 0 722 120" role="img" aria-label="Victim then Attacker then Router then Internet"><rect class="d-box vm" x="10" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="85.0" y="54" text-anchor="middle">Victim</text><text class="d-text small" x="85.0" y="74" text-anchor="middle">laptop</text><path class="d-line accent" d="M162,60 L190,60" marker-end="url(#arrA)"></path><rect class="d-box mine" x="194" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="269.0" y="54" text-anchor="middle">Attacker</text><text class="d-text small" x="269.0" y="74" text-anchor="middle">&quot;I am the router&quot;</text><path class="d-line" d="M346,60 L374,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="378" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="453.0" y="54" text-anchor="middle">Router</text><text class="d-text small" x="453.0" y="74" text-anchor="middle">gateway</text><path class="d-line" d="M530,60 L558,60" marker-end="url(#arr)"></path><rect class="d-box vm" x="562" y="24" width="150" height="72" rx="12"></rect><text class="d-text strong" x="637.0" y="54" text-anchor="middle">Internet</text><text class="d-text small" x="637.0" y="74" text-anchor="middle">server</text></svg></div>
-            <figcaption><b>Figure 1.</b> With ARP spoofing the attacker quietly inserts themselves into the path. Both ends still think they are talking to each other.</figcaption>
-          </figure>
+          <h2>Where the attack shows up, layer by layer</h2>
+          <p>A useful habit from this project was asking, for every clue, which layer of the network stack it lives in. The attacker's footprint looks different at each one.</p>
+          <div class="sx-osi">
+            <div class="sx-osi-row hot"><b>7 · Application</b><span>HTTP requests, IRC chat, credentials and file transfers: <em>what</em> was said and taken.</span></div>
+            <div class="sx-osi-row"><b>4 · Transport</b><span>TCP streams and ports: which conversations exist and how to reassemble them.</span></div>
+            <div class="sx-osi-row"><b>3 · Network</b><span>IP addresses: who talks to whom, and unexpected hops in the path.</span></div>
+            <div class="sx-osi-row hot"><b>2 · Data link</b><span>MAC addresses and ARP: <em>how</em> the attacker got in the middle.</span></div>
+          </div>
         </section>
         <section id="work">
           <div class="part-label">The investigation</div>
-          <h2>Reading the packets</h2>
+          <h2>How I worked the case</h2>
           <div class="steps">
-            <div class="step"><h4>Get the lay of the land</h4><p>Which hosts are talking, over which protocols, and when. Conversation and protocol statistics narrow millions of packets to the few streams that matter.</p></div>
-            <div class="step"><h4>Spot the anomalies</h4><p>Duplicate or flapping ARP replies, traffic routed through an unexpected machine, and sessions that look unlike their RFC. HTTP and IRC both have precise specs, so deviations stand out.</p></div>
-            <div class="step"><h4>Follow the streams</h4><p>Reassemble whole conversations to see what was said, sent or downloaded, and which credentials crossed the wire in a recoverable form.</p></div>
-            <div class="step"><h4>Automate it</h4><p>Re-do the key filters as a pyShark script so the analysis is repeatable on the next capture instead of a one-off set of clicks.</p></div>
+            <div class="step"><h4>Survey before diving in</h4><p>Use protocol hierarchy and conversation statistics to see which hosts, protocols and time windows matter. Thousands of packets shrink to a handful of interesting streams.</p></div>
+            <div class="step"><h4>Find the insertion point</h4><p>Look at the data-link layer for ARP anomalies: repeated unsolicited replies, and one MAC address claiming several IPs.</p></div>
+            <div class="step"><h4>Read the application traffic against its RFC</h4><p>HTTP (RFC 2616) and IRC (RFC 1459) define exactly what valid messages look like. Comparing captured traffic against the standard exposes injected or altered content.</p></div>
+            <div class="step"><h4>Reassemble the conversations</h4><p>Follow TCP streams to read whole exchanges, reconstruct transferred files, and identify which credentials crossed the wire.</p></div>
+            <div class="step"><h4>Assess the damage</h4><p>Captured password hashes are only as safe as the passwords behind them; testing them with a cracking tool shows how quickly weak ones fall.</p></div>
+            <div class="step"><h4>Automate it</h4><p>Rewrite the key filters with pyShark so the same analysis runs on the next capture without hours of clicking.</p></div>
           </div>
-          <div class="callout"><h5>Why RFCs matter</h5><p>When you are not sure whether something is suspicious, the protocol standard is the referee. Knowing exactly what a well-formed HTTP request or IRC command looks like is what lets an analyst say "this is wrong" with confidence.</p></div>
+          <div class="table-wrap sx-table"><table class="rules wide"><thead><tr><th>Protocol</th><th>What a normal message contains</th><th>What I checked</th></tr></thead><tbody><tr><td>HTTP</td><td>method, path, version, headers, optional body</td><td>Unexpected headers, altered content, credentials sent in clear text</td></tr><tr><td>IRC</td><td>prefix, command (e.g. JOIN, PRIVMSG), parameters</td><td>Who joined which channels, what was said, and whether messages were injected</td></tr><tr><td>ARP</td><td>"who has IP X?" and "IP X is at MAC Y"</td><td>Unsolicited replies and duplicate IP-to-MAC claims</td></tr></tbody></table></div>
+        </section>
+        <section id="auto">
+          <div class="part-label">Automation</div>
+          <h2>From clicks to code</h2>
+          <p>Wireshark is ideal for understanding a capture; it is a poor way to answer the same question twice. The second deliverable was a program that applies display filters and extracts fields programmatically. This is the same "explore interactively, then automate" pattern I use for any data problem, and in real incident response it is what lets one analyst handle captures from many machines.</p>
+          <pre class="code"><span class="c"># the shape of it: open a capture with a filter, pull the fields you need</span>
+capture = pyshark.FileCapture(path, display_filter=<span class="k">"arp"</span>)
+<span class="k">for</span> pkt <span class="k">in</span> capture:
+    record(pkt.arp.src_proto_ipv4, pkt.arp.src_hw_mac)</pre>
         </section>
         <section id="defend">
           <div class="part-label">Defence</div>
           <h2>How to defend against it</h2>
           <dl class="gloss">
-            <div><dt>Encrypt everything</dt><dd>TLS (HTTPS) means an interceptor sees only ciphertext; HSTS stops downgrades to plain HTTP.</dd></div>
-            <div><dt>Protect the LAN</dt><dd>Dynamic ARP inspection, port security and segmented networks make spoofing much harder.</dd></div>
-            <div><dt>Strong credentials</dt><dd>Weak passwords captured as hashes can be cracked offline; length and MFA blunt that.</dd></div>
-            <div><dt>Monitor</dt><dd>Network monitoring that flags ARP anomalies and unusual flows catches this in hours, not months.</dd></div>
+            <div><dt>Encrypt everything</dt><dd>TLS means an interceptor only sees ciphertext; HSTS prevents downgrades to plain HTTP.</dd></div>
+            <div><dt>Harden the LAN</dt><dd>Dynamic ARP inspection, DHCP snooping, port security and network segmentation.</dd></div>
+            <div><dt>Retire plaintext protocols</dt><dd>Use encrypted alternatives (e.g. IRC over TLS, SSH instead of Telnet).</dd></div>
+            <div><dt>Strong, unique passwords + MFA</dt><dd>Captured hashes of long passwords resist offline cracking; MFA makes stolen passwords insufficient.</dd></div>
+            <div><dt>Monitor</dt><dd>Alert on ARP anomalies and new devices claiming the gateway's address.</dd></div>
           </dl>
         </section>
         <section id="lessons">
           <div class="part-label">Looking back</div>
           <h2>What it taught me</h2>
           <ol class="lessons">
-            <li><b>Plaintext is public.</b> Seeing a real login travel across a capture made "use HTTPS" visceral.</li>
-            <li><b>Tools first, then code.</b> Wireshark to understand, a script to repeat. That split is how I still approach any new data problem.</li>
-            <li><b>Specs beat intuition.</b> The RFC answered questions my guesses kept getting wrong.</li>
+            <li><b>Plaintext is public.</b> Watching a real login cross the capture made "use HTTPS" visceral.</li>
+            <li><b>Specs beat intuition.</b> When unsure whether something was suspicious, the RFC settled it.</li>
+            <li><b>Explore, then automate.</b> Interactive tools build understanding; scripts make it repeatable.</li>
+            <li><b>Think in layers.</b> Asking "which layer is this?" turned a wall of packets into a story.</li>
           </ol>
         </section>
         <section id="terms">
           <div class="part-label">Reference</div>
           <h2>Key terms</h2>
           <dl class="gloss">
-            <div><dt>PCAP</dt><dd>A packet capture file: a recording of network traffic.</dd></div>
-            <div><dt>ARP spoofing</dt><dd>Sending forged address-resolution replies so traffic is routed through the attacker.</dd></div>
-            <div><dt>Wireshark / pyShark</dt><dd>The standard packet analyser, and a Python wrapper for scripting it.</dd></div>
-            <div><dt>RFC</dt><dd>The published standard that defines how an internet protocol must behave.</dd></div>
-            <div><dt>stream reassembly</dt><dd>Rebuilding a full conversation from many individual packets.</dd></div>
+            <div><dt>PCAP</dt><dd>A packet capture: a recording of network traffic.</dd></div>
+            <div><dt>ARP</dt><dd>Address Resolution Protocol: maps IP addresses to hardware (MAC) addresses on a LAN.</dd></div>
+            <div><dt>ARP spoofing</dt><dd>Sending forged ARP replies to redirect traffic through the attacker.</dd></div>
+            <div><dt>RFC</dt><dd>The published standard defining a protocol.</dd></div>
+            <div><dt>TCP stream</dt><dd>A full two-way conversation reassembled from individual packets.</dd></div>
+            <div><dt>pyShark / tshark</dt><dd>Python wrapper / command-line engine behind Wireshark.</dd></div>
+            <div><dt>HSTS</dt><dd>A header telling browsers to always use HTTPS for a site.</dd></div>
           </dl>
         </section>
 
@@ -146,6 +175,6 @@
   </main>
 
   <script src="../../shared/walkthrough.js"></script>
-<script src="../../shared/kutcher.js?v=6"></script>
+<script src="../../shared/kutcher.js?v=7"></script>
 </body>
 </html>
